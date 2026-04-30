@@ -267,7 +267,9 @@ function showAlert(type, name, extra = "") {
   playAlertSound(type);
 
   const duration = (CONFIG && CONFIG.overlay && CONFIG.overlay.alertDuration) ? CONFIG.overlay.alertDuration : 6000;
+  console.log("[ALERT] Affichage, disparition dans", duration, "ms");
   setTimeout(() => {
+    console.log("[ALERT] setTimeout déclenché, masquage...");
     box.classList.remove("show-alert");
     box.classList.add("hide-alert");
     setTimeout(() => { box.className = "twitch-alert"; }, 600);
