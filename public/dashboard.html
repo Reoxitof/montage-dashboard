@@ -19243,6 +19243,8 @@ function _pushStreamChat(d){
 
 
   const msg=document.createElement("div");msg.className="custom-chat-message";
+  msg.dataset.username = d.username || "";
+  msg.dataset.msgId = d.id || "";
 
 
 
@@ -19255,6 +19257,35 @@ function _pushStreamChat(d){
 
 
   msg.innerHTML=`<span class="chat-msg-time">${ts}</span><span class="chat-msg-username" style="color:${color}">${obsGodEsc(d.username||"")}</span><span class="chat-msg-body"> ${obsGodEsc(d.message||"")}</span>`;
+
+  // Menu contextuel clic droit
+  msg.addEventListener("contextmenu", function(e) {
+    e.preventDefault();
+    const username = msg.dataset.username;
+    const msgId = msg.dataset.msgId;
+    // Supprimer ancien menu
+    document.querySelectorAll(".chat-ctx-menu").forEach(m => m.remove());
+    const menu = document.createElement("div");
+    menu.className = "chat-ctx-menu";
+    menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:99999;background:#1a1a2e;border:1px solid rgba(155,89,182,.4);border-radius:10px;padding:6px 0;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6);`;
+    const actions = [
+      { label: "⏱ Timeout 60s", action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:60, reason:"Timeout dashboard"})}) },
+      { label: "⏱ Timeout 10min", action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:600, reason:"Timeout dashboard"})}) },
+      { label: "🔨 Ban", action: () => { if(confirm(`Bannir ${username} ?`)) fetch("/moderation/ban", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, reason:"Ban dashboard"})}) } },
+      { label: "🗑 Supprimer message", action: () => { msg.style.opacity="0.3"; msg.style.textDecoration="line-through"; } },
+    ];
+    actions.forEach(a => {
+      const btn = document.createElement("div");
+      btn.textContent = a.label;
+      btn.style.cssText = "padding:8px 16px;cursor:pointer;font-size:13px;color:#e0d0ff;transition:background .15s;";
+      btn.onmouseenter = () => btn.style.background = "rgba(155,89,182,.2)";
+      btn.onmouseleave = () => btn.style.background = "";
+      btn.onclick = () => { a.action(); menu.remove(); };
+      menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener("click", () => menu.remove(), {once:true}), 10);
+  });
 
 
 
