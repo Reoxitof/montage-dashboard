@@ -8839,7 +8839,9 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-            <div class="stream-preview-label"><i class="fa-brands fa-twitch"></i> STREAM EN DIRECT &mdash; reoxitof &nbsp;<span id="streamViewerCount" style="background:rgba(155,89,182,.2);border:1px solid rgba(155,89,182,.35);border-radius:999px;padding:2px 10px;font-size:11px;"><i class="fa-solid fa-eye"></i> <span id="streamViewerNum">0</span></span></div>
+            <div class="stream-preview-label"><i class="fa-brands fa-twitch"></i> STREAM EN DIRECT &mdash; reoxitof &nbsp;<span id="streamViewerCount" style="background:rgba(155,89,182,.2);border:1px solid rgba(155,89,182,.35);border-radius:999px;padding:2px 10px;font-size:11px;"><i class="fa-solid fa-eye"></i> <span id="streamViewerNum">0</span></span>
+              &nbsp;<button id="twitchMuteBtn" onclick="toggleTwitchMute()" style="background:rgba(155,89,182,.2);border:1px solid rgba(155,89,182,.35);border-radius:999px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--white);"><i class="fa-solid fa-volume-xmark"></i> Son</button>
+            </div>
 
 
 
@@ -16457,7 +16459,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
 
-
+      window._twitchMuted = true;
 
 
 
@@ -16489,10 +16491,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
 
-
-
-
-
       // Chat embed supprimé —  utilise le chat custom bot
 
 
@@ -16502,6 +16500,28 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
     }
+
+    function toggleTwitchMute() {
+      const wrap = document.getElementById("twitchPlayerWrap");
+      const btn = document.getElementById("twitchMuteBtn");
+      if (!wrap) return;
+      window._twitchMuted = !window._twitchMuted;
+      const parent = window.location.hostname;
+      const channel = "reoxitof";
+      const iframe = wrap.querySelector("iframe");
+      if (iframe) {
+        iframe.src = `https://player.twitch.tv/?channel=${channel}&parent=${parent}&autoplay=true&muted=${window._twitchMuted}`;
+      }
+      if (btn) {
+        btn.innerHTML = window._twitchMuted
+          ? '<i class="fa-solid fa-volume-xmark"></i> Son'
+          : '<i class="fa-solid fa-volume-high"></i> Muet';
+      }
+    }
+
+
+
+
 
 
 
