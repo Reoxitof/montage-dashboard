@@ -19269,8 +19269,11 @@ function _pushStreamChat(d){
     menu.className = "chat-ctx-menu";
     menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;z-index:99999;background:#1a1a2e;border:1px solid rgba(155,89,182,.4);border-radius:10px;padding:6px 0;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6);`;
     const actions = [
-      { label: "⏱ Timeout 60s", action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:60, reason:"Timeout dashboard"})}) },
-      { label: "⏱ Timeout 10min", action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:600, reason:"Timeout dashboard"})}) },
+      { label: "⏱ Timeout 5min",  action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:300,  reason:"Timeout dashboard"})}) },
+      { label: "⏱ Timeout 10min", action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:600,  reason:"Timeout dashboard"})}) },
+      { label: "⏱ Timeout 30min", action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:1800, reason:"Timeout dashboard"})}) },
+      { label: "⏱ Timeout 1h",    action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:3600, reason:"Timeout dashboard"})}) },
+      { label: "⏱ Timeout 24h",   action: () => fetch("/moderation/timeout", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, duration:86400,reason:"Timeout dashboard"})}) },
       { label: "🔨 Ban", action: () => { if(confirm(`Bannir ${username} ?`)) fetch("/moderation/ban", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username, reason:"Ban dashboard"})}) } },
       { label: "🗑 Supprimer message", action: () => { msg.style.opacity="0.3"; msg.style.textDecoration="line-through"; } },
     ];
