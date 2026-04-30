@@ -231,8 +231,9 @@ const pgPool = new Pool({
     port:     parseInt(process.env.PG_PORT || "5432"),
     database: process.env.PG_DB       || "mydb",
     user:     process.env.PG_USER     || "postgres",
-    password: process.env.PG_PASSWORD || "E9uMyIJaI4JFGWBp",
-    ssl: false
+    password: process.env.PG_PASSWORD || "montage2026",
+    ssl: false,
+    connectionTimeoutMillis: 5000
 });
 
 async function initDb() {
