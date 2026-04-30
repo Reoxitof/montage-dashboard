@@ -236,6 +236,7 @@ const pgPool = new Pool({
 });
 
 async function initDb() {
+    console.log("[AUTH] Connexion PostgreSQL →", process.env.PG_HOST || "postgres-3ixu.internal", "| user:", process.env.PG_USER || "postgres", "| pass défini:", !!(process.env.PG_PASSWORD));
     await pgPool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
