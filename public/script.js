@@ -441,10 +441,7 @@ async function checkServerState() {
   try {
     const res = await fetch("/state", { cache: "no-store" });
     const data = await res.json();
-    if (data.alert && data.alertId !== lastAlertId) {
-      lastAlertId = data.alertId;
-      showAlert(data.alert.alertType, data.alert.name, data.alert.extra);
-    }
+    // Les alertes passent uniquement par Socket.IO — pas de redéclenchement via polling
     if (data.subGoal) updateSubGoal(data.subGoal);
   } catch (e) { /* silent */ }
 }
