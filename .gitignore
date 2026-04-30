@@ -1,0 +1,9 @@
+node_modules/
+sessions/
+backups/
+users.db
+users.json
+users.json.bak
+state.json
+*.log
+.env

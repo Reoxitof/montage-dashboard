@@ -1,0 +1,64 @@
+{
+  "server": {
+    "port": 8080,
+    "mode": "public",
+    "host": "0.0.0.0",
+    "publicUrl": ""
+  },
+  "obs": {
+    "enabled": false,
+    "url": "ws://127.0.0.1:4455",
+    "password": ""
+  },
+  "obsBridge": {
+    "enabled": true,
+    "url": "",
+    "token": ""
+  },
+  "twitch": {
+    "channel": "",
+    "owner": "",
+    "botUsername": ""
+  },
+  "twitchApi": {
+    "clientId": "",
+    "oauthToken": "",
+    "broadcasterId": ""
+  },
+  "localAuth": {
+    "enabled": true,
+    "sessionSecret": "CHANGE_ME_ULTRA_SECURE_SESSION_SECRET",
+    "ownerUsername": "",
+    "allowRegister": true
+  },
+  "fivem": {
+    "serverName": "My Server",
+    "endpoint": "",
+    "corsProxy": ""
+  },
+  "overlay": {
+    "discordInvite": "",
+    "rotatingTexts": [
+      "BIENVENUE SUR LE STREAM",
+      "FOLLOW POUR NE RIEN RATER"
+    ],
+    "activeProfile": "perso"
+  },
+  "overlayProfiles": {
+    "perso": {
+      "name": "YOUR NAME",
+      "logoLeft": "/image/logo.png",
+      "logoRight": "",
+      "discordInvite": "",
+      "accentColor": "#9b59b6",
+      "rotatingTexts": [
+        "BIENVENUE SUR LE STREAM",
+        "FOLLOW POUR NE RIEN RATER"
+      ]
+    }
+  },
+  "audio": {
+    "enabled": true,
+    "mode": "obsBridge"
+  }
+}

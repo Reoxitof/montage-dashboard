@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BlueSky — Créer un compte</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0510;
+      --surface: #130d1e;
+      --card: #1a1228;
+      --border: rgba(155,89,182,0.25);
+      --violet: #9b59b6;
+      --violet-dim: #7d3c98;
+      --violet-bright: #c39bd3;
+      --white: #e8e0f0;
+      --white-dim: #9a8fb0;
+      --green: #22c55e;
+      --red: #ef4444;
+      --orange: #f97316;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: Inter, Arial, sans-serif;
+      color: var(--white);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(155,89,182,0.26), transparent 30%),
+        radial-gradient(circle at 88% 82%, rgba(125,60,152,0.20), transparent 32%),
+        var(--bg);
+      overflow-x: hidden;
+    }
+
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      opacity: 0.14;
+      background-image:
+        linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, black, transparent 72%);
+      pointer-events: none;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      align-items: center;
+      gap: 40px;
+      width: min(1180px, 94vw);
+      margin: 0 auto;
+      padding: 40px 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Brand panel ── */
+    .brand-panel { padding: 32px; }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .logo-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: rgba(155,89,182,0.12);
+      border: 1px solid rgba(155,89,182,0.25);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 32px rgba(0,180,255,0.18), 0 8px 24px rgba(0,0,0,0.4);
+      overflow: hidden;
+    }
+
+    .logo-icon img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+    }
+
+    .logo-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .logo-title strong {
+      font-family: Anton, sans-serif;
+      font-size: 32px;
+      letter-spacing: 4px;
+      line-height: 1;
+    }
+
+    .logo-title span {
+      color: var(--white-dim);
+      letter-spacing: 3px;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .hero-title {
+      font-family: Anton, sans-serif;
+      font-size: clamp(38px, 5.5vw, 70px);
+      line-height: .94;
+      letter-spacing: 3px;
+      margin-bottom: 18px;
+      text-transform: uppercase;
+    }
+
+    .hero-title span { color: var(--violet-bright); }
+
+    .hero-text {
+      color: var(--white-dim);
+      font-size: 14px;
+      line-height: 1.7;
+      max-width: 520px;
+      margin-bottom: 24px;
+    }
+
+    .pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(155,89,182,0.4);
+      background: rgba(155,89,182,0.1);
+      color: var(--violet-bright);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      backdrop-filter: blur(8px);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .stat-mini {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(155,89,182,0.2);
+      border-radius: 16px;
+      padding: 16px 10px;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .stat-mini:hover {
+      border-color: rgba(155,89,182,0.45);
+      background: rgba(155,89,182,0.08);
+    }
+
+    .stat-mini .stat-icon { font-size: 22px; margin-bottom: 8px; }
+    .stat-mini .stat-val {
+      font-family: Anton, sans-serif;
+      font-size: 16px;
+      color: var(--white);
+      letter-spacing: 1px;
+      line-height: 1.1;
+    }
+    .stat-mini .stat-lbl {
+      font-size: 9px;
+      font-weight: 800;
+      color: var(--white-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+
+    .brand-footer {
+      margin-top: 28px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(155,89,182,0.12);
+      color: var(--white-dim);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      opacity: 0.6;
+    }
+
+    /* ── Auth card ── */
+    .auth-card {
+      position: relative;
+      background:
+        radial-gradient(circle at top right, rgba(155,89,182,.18), transparent 34%),
+        linear-gradient(145deg, rgba(30,20,46,.97), rgba(16,10,26,.97));
+      border: 1px solid var(--border);
+      border-radius: 26px;
+      padding: 30px;
+      box-shadow: 0 26px 80px rgba(0,0,0,.5), 0 0 60px rgba(155,89,182,.10);
+      overflow: hidden;
+    }
+
+    .auth-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.04), transparent);
+      transform: translateX(-120%);
+      animation: sweep 8s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes sweep {
+      0%, 65% { transform: translateX(-120%); }
+      100% { transform: translateX(120%); }
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .card-top h1 {
+      font-family: Anton, sans-serif;
+      letter-spacing: 3px;
+      font-size: 30px;
+      text-transform: uppercase;
+    }
+
+    .card-top p {
+      margin-top: 6px;
+      color: var(--white-dim);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .secure-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(34,197,94,.10);
+      border: 1px solid rgba(34,197,94,.28);
+      color: #86efac;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 14px; }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 7px;
+      font-size: 10px;
+      font-weight: 900;
+      color: var(--violet-bright);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    label span { color: var(--white-dim); font-weight: 700; }
+
+    .input-wrap { position: relative; }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 15px;
+      pointer-events: none;
+      color: var(--white-dim);
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      min-height: 50px;
+      padding: 0 46px;
+      border-radius: 12px;
+      border: 1px solid rgba(155,89,182,.22);
+      background: rgba(10,5,16,.88);
+      color: var(--white);
+      font-family: Inter, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+    }
+
+    input:focus {
+      border-color: var(--violet);
+      box-shadow: 0 0 0 3px rgba(155,89,182,.16);
+    }
+
+    .toggle-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 34px;
+      height: 34px;
+      border: none;
+      background: transparent;
+      color: var(--white-dim);
+      cursor: pointer;
+      border-radius: 8px;
+      font-size: 14px;
+      display: grid;
+      place-items: center;
+      transition: background .15s, color .15s;
+    }
+
+    .toggle-btn:hover { background: rgba(255,255,255,.07); color: var(--white); }
+
+    .hint {
+      margin-top: 6px;
+      color: var(--white-dim);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    /* Strength bar */
+    .strength-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .strength-bar span {
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      transition: background .2s;
+    }
+
+    .strength-bar[data-level="1"] span:nth-child(-n+1) { background: var(--red); }
+    .strength-bar[data-level="2"] span:nth-child(-n+2) { background: var(--orange); }
+    .strength-bar[data-level="3"] span:nth-child(-n+3) { background: #eab308; }
+    .strength-bar[data-level="4"] span:nth-child(-n+4) { background: var(--green); }
+
+    /* Error box */
+    .error-box {
+      display: none;
+      margin: 14px 0;
+      padding: 11px 13px;
+      border-radius: 12px;
+      background: rgba(239,68,68,.12);
+      border: 1px solid rgba(239,68,68,.28);
+      color: #fca5a5;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.5;
+    }
+
+    .error-box.show { display: block; }
+
+    /* Submit */
+    .submit-btn {
+      width: 100%;
+      min-height: 52px;
+      border: none;
+      border-radius: 13px;
+      color: #fff;
+      background: linear-gradient(135deg, #a35cc2, var(--violet-dim));
+      font-family: Inter, Arial, sans-serif;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 16px 36px rgba(155,89,182,.24);
+      transition: transform .18s, box-shadow .18s;
+      margin-top: 4px;
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 42px rgba(155,89,182,.32);
+    }
+
+    .submit-btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .footer-links {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      color: var(--white-dim);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .footer-links a {
+      color: var(--violet-bright);
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .footer-links a:hover { text-decoration: underline; }
+
+    @media (max-width: 900px) {
+      .page { grid-template-columns: 1fr; gap: 18px; }
+      .brand-panel { padding: 16px 6px 0; }
+      .hero-title { font-size: 40px; }
+      .auth-card { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <main class="page">
+    <section class="brand-panel">
+      <div class="logo-row">
+        <div class="logo-icon">
+          <img src="/image/logo2.png" alt="BlueSky" style="width:64px;height:64px;object-fit:contain;">
+        </div>
+        <div class="logo-title">
+          <strong>BLUESKY</strong>
+          <span>Streamer Control Panel</span>
+        </div>
+      </div>
+
+      <div class="pill-badge">🔐 Accès sécurisé</div>
+
+      <h2 class="hero-title">Créer un accès<br><span>sécurisé</span></h2>
+
+      <p class="hero-text">
+        Inscris ton compte dashboard pour gérer ton panel, la modération, les alertes,
+        les rôles utilisateurs et les outils stream.
+      </p>
+
+      <div class="stats-grid">
+        <div class="stat-mini">
+          <div class="stat-icon">🛡️</div>
+          <div class="stat-val">BCrypt</div>
+          <div class="stat-lbl">Chiffrement</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-val">SQLite</div>
+          <div class="stat-lbl">Base de données</div>
+        </div>
+        <div class="stat-mini">
+          <div class="stat-icon">🔒</div>
+          <div class="stat-val">Sessions</div>
+          <div class="stat-lbl">Protégées</div>
+        </div>
+      </div>
+
+      <div class="brand-footer">BlueSky Dashboard v3 — Streamer Control Panel</div>
+    </section>
+
+    <section class="auth-card">
+      <div class="card-top">
+        <div>
+          <h1>REGISTER</h1>
+          <p>Crée ton compte pour accéder au dashboard BlueSky.</p>
+        </div>
+        <div class="secure-badge">🔒 SECURE</div>
+      </div>
+
+      <form id="registerForm" method="POST" action="/auth/register" autocomplete="off">
+
+        <div class="form-group">
+          <label for="username">Pseudo <span>3-32 chars</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" id="username" name="username"
+              placeholder="ex: reoxitof" minlength="3" maxlength="32" required>
+          </div>
+          <div class="hint">Lettres, chiffres et underscore uniquement. <strong style="color:var(--violet-bright);">⚠️ Ce pseudo sera visible dans le chat Twitch lors de tes actions de modération.</strong></div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email <span>obligatoire</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">✉️</span>
+            <input type="email" id="email" name="email"
+              placeholder="ex: contact@exemple.com" autocomplete="email" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Mot de passe <span>min 8 chars</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">🔑</span>
+            <input type="password" id="password" name="password"
+              placeholder="Mot de passe sécurisé" minlength="8" required>
+            <button class="toggle-btn" type="button" onclick="togglePass('password', this)" title="Afficher/masquer">👁</button>
+          </div>
+          <div class="strength-bar" id="strengthBar" data-level="0">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="confirmPassword">Confirmation <span>identique</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">✅</span>
+            <input type="password" id="confirmPassword"
+              placeholder="Confirme le mot de passe" minlength="8" required>
+            <button class="toggle-btn" type="button" onclick="togglePass('confirmPassword', this)" title="Afficher/masquer">👁</button>
+          </div>
+        </div>
+
+        <div class="error-box" id="errorBox"></div>
+
+        <button class="submit-btn" id="submitBtn" type="submit">
+          ➕ Créer le compte
+        </button>
+      </form>
+
+      <div class="footer-links">
+        <span>Déjà un compte ?</span>
+        <a href="/login.html">Se connecter →</a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const ERRORS = {
+      pseudo_invalide: "Pseudo invalide (3-32 chars, lettres/chiffres/_)",
+      email_invalide: "Adresse email invalide",
+      mot_de_passe_trop_court: "Mot de passe trop court (min 8 caractères)",
+      mots_de_passe_differents: "Les mots de passe ne correspondent pas",
+      compte_existe: "Ce pseudo est déjà pris",
+      email_existe: "Cette adresse email est déjà utilisée",
+      register_disabled: "Les inscriptions sont désactivées",
+      server_error: "Erreur serveur, réessaie"
+    };
+
+    const form = document.getElementById("registerForm");
+    const usernameEl = document.getElementById("username");
+    const emailEl = document.getElementById("email");
+    const passwordEl = document.getElementById("password");
+    const confirmEl = document.getElementById("confirmPassword");
+    const errorBox = document.getElementById("errorBox");
+    const strengthBar = document.getElementById("strengthBar");
+    const submitBtn = document.getElementById("submitBtn");
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.add("show");
+    }
+
+    function clearError() {
+      errorBox.textContent = "";
+      errorBox.classList.remove("show");
+    }
+
+    function togglePass(id, btn) {
+      const input = document.getElementById(id);
+      input.type = input.type === "password" ? "text" : "password";
+      btn.textContent = input.type === "password" ? "👁" : "🙈";
+    }
+
+    function calcStrength(val) {
+      let s = 0;
+      if (val.length >= 8) s++;
+      if (/[A-Z]/.test(val) && /[a-z]/.test(val)) s++;
+      if (/[0-9]/.test(val)) s++;
+      if (/[^A-Za-z0-9]/.test(val)) s++;
+      return Math.min(s, 4);
+    }
+
+    passwordEl.addEventListener("input", () => {
+      strengthBar.dataset.level = calcStrength(passwordEl.value);
+    });
+
+    // Show URL error on load
+    const urlError = new URLSearchParams(location.search).get("error");
+    if (urlError) showError(ERRORS[urlError] || "Erreur : " + urlError);
+
+    form.addEventListener("submit", (e) => {
+      clearError();
+
+      const username = usernameEl.value.trim().toLowerCase();
+      usernameEl.value = username;
+
+      if (!/^[a-z0-9_]{3,32}$/.test(username)) {
+        e.preventDefault();
+        showError(ERRORS.pseudo_invalide);
+        return;
+      }
+
+      const email = emailEl.value.trim();
+      if (!email) {
+        e.preventDefault();
+        showError("L'adresse email est obligatoire.");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        e.preventDefault();
+        showError(ERRORS.email_invalide);
+        return;
+      }
+
+      if (passwordEl.value.length < 8) {
+        e.preventDefault();
+        showError(ERRORS.mot_de_passe_trop_court);
+        return;
+      }
+
+      if (passwordEl.value !== confirmEl.value) {
+        e.preventDefault();
+        showError(ERRORS.mots_de_passe_differents);
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "⏳ Création en cours...";
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BlueSky Overlay — GTA V Edition</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <div class="scanlines"></div>
+
+  <!-- LOGO gauche -->
+  <div class="overlay-logo" id="overlayLogoLeft">
+    <img src="/image/logo.png" alt="Logo" id="logoLeftImg" />
+  </div>
+
+  <!-- LOGO droit -->
+  <div class="overlay-logo overlay-logo-right" id="overlayLogoRight">
+    <img src="/image/logo2.png" alt="Logo 2" id="logoRightImg" />
+  </div>
+
+  <!-- SUB GOAL -->
+  <div class="sub-goal" id="subGoal">
+    <div class="sub-goal-icon"><i class="fa-solid fa-star"></i></div>
+    <div class="sub-goal-content">
+      <div class="sub-goal-header">
+        <span class="sub-goal-label" id="subGoalLabel">OBJECTIF ABONNÉS</span>
+        <span class="sub-goal-count" id="subGoalCount">0 / 50</span>
+      </div>
+      <div class="sub-goal-bar">
+        <div class="sub-goal-fill" id="subGoalFill"></div>
+        <div class="sub-goal-glow" id="subGoalGlow"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD BANNER -->
+  <div class="hud-banner">
+    <div class="hud-left">
+      <div class="live-dot"></div>
+      <div class="hud-label" id="serverStatus">SERVEUR ONLINE</div>
+    </div>
+    <div class="hud-center">
+      <div class="title" id="rotatingText">BLUESKY ROLEPLAY</div>
+      <div class="subtitle" id="serverInfo">discord.gg/EZDacD76M4</div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-pill" id="viewerCount" title="Viewers Twitch">
+        <i class="fa-solid fa-eye"></i> 0
+      </div>
+      <div class="hud-pill" id="playersCount">
+        <i class="fa-solid fa-users"></i> --/--
+      </div>
+    </div>
+  </div>
+
+  <!-- TWITCH ALERT -->
+  <div class="twitch-alert" id="twitchAlert">
+    <div class="alert-icon-box" id="alertIconBox">
+      <i class="fa-solid fa-heart" id="alertIconInner"></i>
+    </div>
+    <div class="alert-separator"></div>
+    <div class="alert-content">
+      <div class="alert-title" id="alertTitle">NOUVEAU FOLLOW</div>
+      <div class="alert-name" id="alertName"></div>
+      <div class="alert-subtitle" id="alertSubtitle">MERCI DE ME SUIVRE !</div>
+    </div>
+    <div class="alert-dots alert-dots-left"><span></span><span></span><span></span></div>
+    <div class="alert-dots alert-dots-right"><span></span><span></span><span></span></div>
+  </div>
+
+  <!-- CHAT OVERLAY -->
+  <div class="chat-overlay" id="chatOverlay"></div>
+
+  <!-- CAM OVERLAY — bas gauche -->
+  <div class="cam-overlay" id="camOverlay">
+    <div class="cam-frame">
+      <div class="cam-corner cam-corner-tl"></div>
+      <div class="cam-corner cam-corner-tr"></div>
+      <div class="cam-corner cam-corner-bl"></div>
+      <div class="cam-corner cam-corner-br"></div>
+      <div class="cam-scanline"></div>
+    </div>
+    <div class="cam-label">
+      <div class="cam-live-dot"></div>
+      <span>REOXITOF</span>
+    </div>
+  </div>
+
+  <!-- VOTE PANEL -->
+  <div class="vote-panel" id="votePanel">
+    <div class="vote-panel-inner">
+      <div class="vote-header">
+        <div class="vote-header-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+        <div>
+          <div class="vote-title">VOTE STREAM</div>
+          <div class="vote-target">CIBLE : <span id="voteTargetDisplay">—</span></div>
+        </div>
+      </div>
+      <div class="vote-separator"></div>
+      <div class="vote-option">
+        <div class="vote-option-header">
+          <div class="vote-option-label vote-label-jail"><i class="fa-solid fa-lock"></i> JAIL</div>
+          <div class="vote-count" id="voteJailCount">0</div>
+        </div>
+        <div class="vote-bar-track"><div class="vote-bar-fill vote-fill-jail" id="voteJailBar"></div></div>
+      </div>
+      <div class="vote-option">
+        <div class="vote-option-header">
+          <div class="vote-option-label vote-label-ban"><i class="fa-solid fa-gavel"></i> BAN</div>
+          <div class="vote-count" id="voteBanCount">0</div>
+        </div>
+        <div class="vote-bar-track"><div class="vote-bar-fill vote-fill-ban" id="voteBanBar"></div></div>
+      </div>
+      <div class="vote-option">
+        <div class="vote-option-header">
+          <div class="vote-option-label vote-label-free"><i class="fa-solid fa-dove"></i> FREE</div>
+          <div class="vote-count" id="voteFreeCount">0</div>
+        </div>
+        <div class="vote-bar-track"><div class="vote-bar-fill vote-fill-free" id="voteFreeBar"></div></div>
+      </div>
+      <div class="vote-separator"></div>
+      <div class="vote-footer">
+        <div class="vote-timer" id="voteTimer">EN ATTENTE</div>
+        <div class="vote-result" id="voteResult"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BRB OVERLAY (enrichi avec timer) -->
+  <div class="brb-overlay" id="brbOverlay">
+    <div class="brb-content">
+      <div class="brb-icon"><i class="fa-solid fa-clock"></i></div>
+      <div class="brb-text" id="brbMessage">BE RIGHT BACK</div>
+      <div class="brb-sub" id="brbSub">ON REVIENT DANS UN INSTANT</div>
+    </div>
+    <div class="brb-timer" id="brbOverlayTimer"></div>
+  </div>
+
+  <script src="/script.js"></script>
+</body>
+</html>

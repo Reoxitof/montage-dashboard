@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vote — NUI</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Exo+2:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+/* ═══════════════════════════════════════
+   VOTE NUI — Violet Abyssal × Noir
+   ═══════════════════════════════════════ */
+
+:root {
+  --nui-void:        #05010d;
+  --nui-abyss:       #0a0118;
+  --nui-deep:        #110222;
+  --nui-surface:     #1a0533;
+  --nui-elevated:    #220844;
+  --nui-violet-dim:  #6b21a8;
+  --nui-violet:      #8b5cf6;
+  --nui-violet-bright: #a78bfa;
+  --nui-violet-glow: #c4b5fd;
+  --nui-accent:      #d946ef;
+  --nui-accent-glow: #e879f9;
+  --nui-white:       #f0e6ff;
+  --nui-gold:        #fbbf24;
+  --nui-cyan:        #22d3ee;
+  --nui-red:         #f43f5e;
+  --nui-green:       #34d399;
+  --nui-orange:      #fb923c;
+  --nui-border:      rgba(139, 92, 246, 0.35);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: transparent;
+  font-family: 'Rajdhani', Arial, sans-serif;
+  color: var(--nui-white);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Vote Box ── */
+
+.vote-box {
+  display: none;
+  width: 520px;
+  padding: 28px 32px;
+  position: relative;
+
+  background:
+    linear-gradient(135deg,
+      rgba(10, 1, 24, 0.96) 0%,
+      rgba(17, 2, 34, 0.94) 50%,
+      rgba(10, 1, 24, 0.96) 100%
+    );
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+
+  border: 1.5px solid var(--nui-border);
+  clip-path: polygon(
+    16px 0%, calc(100% - 16px) 0%,
+    100% 16px, 100% calc(100% - 16px),
+    calc(100% - 16px) 100%, 16px 100%,
+    0% calc(100% - 16px), 0% 16px
+  );
+
+  box-shadow:
+    0 0 30px rgba(139, 92, 246, 0.3),
+    0 0 60px rgba(139, 92, 246, 0.15),
+    0 0 100px rgba(139, 92, 246, 0.08);
+
+  animation: voteEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Ligne lumineuse du haut */
+.vote-box::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--nui-violet) 20%,
+    var(--nui-accent) 50%,
+    var(--nui-violet) 80%,
+    transparent
+  );
+  animation: lineGlow 3s ease-in-out infinite;
+}
+
+/* Reflet interne */
+.vote-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(139, 92, 246, 0.05) 0%,
+    transparent 30%
+  );
+  pointer-events: none;
+  clip-path: inherit;
+}
+
+/* ── Header ── */
+
+.vote-header {
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.vote-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--nui-violet-dim), var(--nui-surface));
+  border: 1.5px solid var(--nui-border);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  font-size: 22px;
+  color: var(--nui-violet-glow);
+  margin-bottom: 12px;
+  animation: iconFloat 2.5s ease-in-out infinite;
+}
+
+.vote-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: var(--nui-white);
+  text-shadow:
+    0 0 10px rgba(139, 92, 246, 0.5),
+    0 0 30px rgba(139, 92, 246, 0.2);
+  text-transform: uppercase;
+}
+
+.vote-target {
+  font-family: 'Exo 2', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  color: var(--nui-violet-bright);
+  margin-top: 6px;
+}
+
+.vote-target span {
+  color: var(--nui-gold);
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+
+/* ── Separator ── */
+
+.vote-separator {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--nui-border),
+    transparent
+  );
+  margin: 16px 0;
+}
+
+/* ── Vote Options ── */
+
+.vote-option {
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.vote-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.vote-option-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vote-option-label i {
+  font-size: 13px;
+}
+
+.vote-option-label.jail-label {
+  color: var(--nui-orange);
+  text-shadow: 0 0 6px rgba(251, 146, 60, 0.4);
+}
+
+.vote-option-label.ban-label {
+  color: var(--nui-red);
+  text-shadow: 0 0 6px rgba(244, 63, 94, 0.4);
+}
+
+.vote-option-label.free-label {
+  color: var(--nui-green);
+  text-shadow: 0 0 6px rgba(52, 211, 153, 0.4);
+}
+
+.vote-count {
+  font-family: 'Orbitron', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--nui-white);
+  text-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+/* ── Progress Bars ── */
+
+.vote-bar-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(26, 5, 51, 0.8);
+  border-radius: 50px;
+  overflow: hidden;
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  position: relative;
+}
+
+.vote-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 50px;
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.vote-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  border-radius: 50px;
+}
+
+.vote-bar-fill.jail-fill {
+  background: linear-gradient(90deg, rgba(251, 146, 60, 0.3), var(--nui-orange));
+  box-shadow: 0 0 10px rgba(251, 146, 60, 0.4);
+}
+.vote-bar-fill.jail-fill::after {
+  background: radial-gradient(circle, rgba(251, 146, 60, 0.8), transparent);
+}
+
+.vote-bar-fill.ban-fill {
+  background: linear-gradient(90deg, rgba(244, 63, 94, 0.3), var(--nui-red));
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
+}
+.vote-bar-fill.ban-fill::after {
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.8), transparent);
+}
+
+.vote-bar-fill.free-fill {
+  background: linear-gradient(90deg, rgba(52, 211, 153, 0.3), var(--nui-green));
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
+}
+.vote-bar-fill.free-fill::after {
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.8), transparent);
+}
+
+/* ── Timer & Result ── */
+
+.vote-footer {
+  text-align: center;
+  margin-top: 18px;
+  position: relative;
+  z-index: 1;
+}
+
+.vote-timer {
+  font-family: 'Orbitron', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--nui-violet-bright);
+  text-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+.vote-result {
+  font-family: 'Orbitron', monospace;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+
+.vote-result.result-jail {
+  color: var(--nui-orange);
+  text-shadow: 0 0 10px rgba(251, 146, 60, 0.5);
+}
+
+.vote-result.result-ban {
+  color: var(--nui-red);
+  text-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+}
+
+.vote-result.result-tie {
+  color: var(--nui-violet-glow);
+  text-shadow: 0 0 10px rgba(196, 181, 253, 0.5);
+}
+
+.vote-result.result-free {
+  color: var(--nui-green);
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+}
+
+/* ── Animations ── */
+
+@keyframes voteEnter {
+  0% {
+    transform: translateY(30px) scale(0.92);
+    opacity: 0;
+    filter: blur(6px);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes lineGlow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes iconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+</style>
+</head>
+
+<body>
+
+<div class="vote-box" id="voteBox">
+
+  <!-- Header -->
+  <div class="vote-header">
+    <div class="vote-header-icon">
+      <i class="fa-solid fa-scale-balanced"></i>
+    </div>
+    <div class="vote-title">VOTE STREAM</div>
+    <div class="vote-target">
+      CIBLE : <span id="targetDisplay">Aucun</span>
+    </div>
+  </div>
+
+  <div class="vote-separator"></div>
+
+  <!-- Jail Option -->
+  <div class="vote-option">
+    <div class="vote-option-header">
+      <div class="vote-option-label jail-label">
+        <i class="fa-solid fa-lock"></i> JAIL
+      </div>
+      <div class="vote-count" id="jailVotes">0</div>
+    </div>
+    <div class="vote-bar-track">
+      <div class="vote-bar-fill jail-fill" id="jailBar"></div>
+    </div>
+  </div>
+
+  <!-- Ban Option -->
+  <div class="vote-option">
+    <div class="vote-option-header">
+      <div class="vote-option-label ban-label">
+        <i class="fa-solid fa-gavel"></i> BAN
+      </div>
+      <div class="vote-count" id="banVotes">0</div>
+    </div>
+    <div class="vote-bar-track">
+      <div class="vote-bar-fill ban-fill" id="banBar"></div>
+    </div>
+  </div>
+
+  <!-- Free Option -->
+  <div class="vote-option">
+    <div class="vote-option-header">
+      <div class="vote-option-label free-label">
+        <i class="fa-solid fa-dove"></i> FREE
+      </div>
+      <div class="vote-count" id="freeVotes">0</div>
+    </div>
+    <div class="vote-bar-track">
+      <div class="vote-bar-fill free-fill" id="freeBar"></div>
+    </div>
+  </div>
+
+  <div class="vote-separator"></div>
+
+  <!-- Footer -->
+  <div class="vote-footer">
+    <div class="vote-timer" id="timer">EN ATTENTE</div>
+    <div class="vote-result" id="result"></div>
+  </div>
+
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   VOTE NUI — Connexion & Logique
+   ═══════════════════════════════════════ */
+
+let socket = null;
+
+async function initSocket() {
+  try {
+    const res = await fetch("/config", { cache: "no-store" });
+    const config = await res.json();
+    const serverUrl = config.publicUrl || window.location.origin;
+
+    const script = document.createElement("script");
+    script.src = serverUrl + "/socket.io/socket.io.js";
+    script.onload = () => {
+      socket = io(serverUrl);
+      socket.on("connect", () => console.log("[VOTE NUI] Connecté :", serverUrl));
+      socket.on("chatCommand", (data) => handleCommand(data.username, data, data.message));
+    };
+    script.onerror = () => {
+      const fallback = document.createElement("script");
+      fallback.src = "/socket.io/socket.io.js";
+      fallback.onload = () => {
+        socket = io();
+        socket.on("connect", () => console.log("[VOTE NUI] Connecté (fallback)"));
+        socket.on("chatCommand", (data) => handleCommand(data.username, data, data.message));
+      };
+      document.head.appendChild(fallback);
+    };
+    document.head.appendChild(script);
+  } catch (e) {
+    console.log("[VOTE NUI] Erreur config, fallback :", e);
+    const fallback = document.createElement("script");
+    fallback.src = "/socket.io/socket.io.js";
+    fallback.onload = () => {
+      socket = io();
+      socket.on("connect", () => console.log("[VOTE NUI] Connecté (fallback)"));
+      socket.on("chatCommand", (data) => handleCommand(data.username, data, data.message));
+    };
+    document.head.appendChild(fallback);
+  }
+}
+
+/* ── Vote Logic ── */
+
+let jailVotes = 0;
+let banVotes = 0;
+let freeVotes = 0;
+let voters = new Set();
+let voteActive = false;
+let timeLeft = 0;
+let timerInterval = null;
+let targetId = "Aucun";
+
+const voteBox = document.getElementById("voteBox");
+const jailVotesDisplay = document.getElementById("jailVotes");
+const banVotesDisplay = document.getElementById("banVotes");
+const freeVotesDisplay = document.getElementById("freeVotes");
+const jailBar = document.getElementById("jailBar");
+const banBar = document.getElementById("banBar");
+const freeBar = document.getElementById("freeBar");
+const timerDisplay = document.getElementById("timer");
+const resultDisplay = document.getElementById("result");
+const targetDisplay = document.getElementById("targetDisplay");
+
+voteBox.style.display = "none";
+
+function showOverlay() {
+  voteBox.style.display = "block";
+}
+
+function hideOverlay() {
+  voteBox.style.display = "none";
+}
+
+function startVote(id, duration) {
+  showOverlay();
+
+  jailVotes = 0;
+  banVotes = 0;
+  freeVotes = 0;
+  voters.clear();
+  voteActive = true;
+  timeLeft = duration;
+  targetId = id;
+
+  targetDisplay.textContent = id;
+  resultDisplay.textContent = "";
+  resultDisplay.className = "vote-result";
+
+  if (timerInterval) clearInterval(timerInterval);
+
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    timerDisplay.textContent = `⏱ ${timeLeft}s`;
+
+    if (timeLeft <= 0) endVote();
+  }, 1000);
+
+  update();
+}
+
+function vote(user, choice) {
+  if (!voteActive) return;
+  if (voters.has(user)) return;
+
+  if (choice === "jail") jailVotes++;
+  if (choice === "ban") banVotes++;
+  if (choice === "free") freeVotes++;
+
+  voters.add(user);
+  update();
+}
+
+function update() {
+  const total = jailVotes + banVotes + freeVotes;
+
+  jailVotesDisplay.textContent = jailVotes;
+  banVotesDisplay.textContent = banVotes;
+  freeVotesDisplay.textContent = freeVotes;
+
+  jailBar.style.width = (total ? (jailVotes / total) * 100 : 0) + "%";
+  banBar.style.width = (total ? (banVotes / total) * 100 : 0) + "%";
+  freeBar.style.width = (total ? (freeVotes / total) * 100 : 0) + "%";
+}
+
+function endVote() {
+  voteActive = false;
+  clearInterval(timerInterval);
+
+  timerDisplay.textContent = "TERMINÉ";
+
+  let result = "ÉGALITÉ";
+  let cls = "result-tie";
+
+  const max = Math.max(jailVotes, banVotes, freeVotes);
+  const winners = [
+    jailVotes === max && "jail",
+    banVotes === max && "ban",
+    freeVotes === max && "free"
+  ].filter(Boolean);
+
+  if (winners.length === 1) {
+    if (winners[0] === "jail") { result = "⚖ JAIL"; cls = "result-jail"; }
+    else if (winners[0] === "ban") { result = "⚖ BAN"; cls = "result-ban"; }
+    else if (winners[0] === "free") { result = "⚖ FREE"; cls = "result-free"; }
+  }
+
+  resultDisplay.textContent = result;
+  resultDisplay.className = "vote-result " + cls;
+}
+
+function handleCommand(user, tags, message) {
+  const msg = message.toLowerCase();
+  const args = msg.split(" ");
+
+  if (msg === "!vote on") showOverlay();
+  if (msg === "!vote off") hideOverlay();
+
+  if (args[0] === "!vote" && args[1] && args[1] !== "on" && args[1] !== "off") {
+    startVote(args[1], parseInt(args[2]) || 60);
+  }
+
+  if (msg === "!jail") vote(user, "jail");
+  if (msg === "!ban") vote(user, "ban");
+  if (msg === "!free") vote(user, "free");
+}
+
+/* ── Init ── */
+initSocket();
+</script>
+
+</body>
+</html>

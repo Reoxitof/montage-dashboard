@@ -1,0 +1,64 @@
+{
+  "server": {
+    "port": 8080,
+    "mode": "public",
+    "host": "0.0.0.0",
+    "publicUrl": "https://your-app.sliplane.app"
+  },
+  "obs": {
+    "enabled": false,
+    "url": "ws://127.0.0.1:4455",
+    "password": ""
+  },
+  "obsBridge": {
+    "enabled": true,
+    "url": "",
+    "token": "CHANGE_ME_BRIDGE_TOKEN"
+  },
+  "twitch": {
+    "channel": "your_twitch_channel",
+    "owner": "your_twitch_channel",
+    "botUsername": "your_twitch_channel"
+  },
+  "twitchApi": {
+    "clientId": "",
+    "oauthToken": "",
+    "broadcasterId": ""
+  },
+  "localAuth": {
+    "enabled": true,
+    "sessionSecret": "CHANGE_ME_ULTRA_SECURE_SESSION_SECRET",
+    "ownerUsername": "your_twitch_channel",
+    "allowRegister": true
+  },
+  "fivem": {
+    "serverName": "My Server",
+    "endpoint": "",
+    "corsProxy": ""
+  },
+  "overlay": {
+    "discordInvite": "discord.gg/your-invite",
+    "rotatingTexts": [
+      "BIENVENUE SUR LE STREAM",
+      "FOLLOW POUR NE RIEN RATER"
+    ],
+    "activeProfile": "perso"
+  },
+  "overlayProfiles": {
+    "perso": {
+      "name": "YOUR NAME",
+      "logoLeft": "/image/logo.png",
+      "logoRight": "",
+      "discordInvite": "discord.gg/your-invite",
+      "accentColor": "#9b59b6",
+      "rotatingTexts": [
+        "BIENVENUE SUR LE STREAM",
+        "FOLLOW POUR NE RIEN RATER"
+      ]
+    }
+  },
+  "audio": {
+    "enabled": true,
+    "mode": "obsBridge"
+  }
+}
