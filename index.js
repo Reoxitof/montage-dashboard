@@ -223,120 +223,95 @@ app.use(session({
     }
 }));
 
-// ═══ SQLite Auth (sql.js — pur JS, compatible tous serveurs) ═══
-const initSqlJs = require("sql.js");
-const DB_FILE = path.join(__dirname, "users.db");
+// ═══ PostgreSQL Auth ═══
+const { Pool } = require("pg");
 
-let db = null;
-
-function dbSave() {
-    const data = db.export();
-    fs.writeFileSync(DB_FILE, Buffer.from(data));
-}
+const pgPool = new Pool({
+    host:     process.env.PG_HOST     || "postgres-3ixu.internal",
+    port:     parseInt(process.env.PG_PORT || "5432"),
+    database: process.env.PG_DB       || "mydb",
+    user:     process.env.PG_USER     || "postgres",
+    password: process.env.PG_PASSWORD || "E9uMyIJaI4JFGWBp",
+    ssl: false
+});
 
 async function initDb() {
-    const SQL = await initSqlJs();
-    if (fs.existsSync(DB_FILE)) {
-        const fileBuffer = fs.readFileSync(DB_FILE);
-        db = new SQL.Database(fileBuffer);
-    } else {
-        db = new SQL.Database();
-    }
-    db.run(`
+    await pgPool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE,
-            passwordHash TEXT NOT NULL,
+            "passwordHash" TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'neutre',
-            createdAt TEXT NOT NULL,
-            lastLoginAt TEXT,
-            lastSeenAt TEXT,
-            loginCount INTEGER DEFAULT 0
+            "createdAt" TEXT NOT NULL,
+            "lastLoginAt" TEXT,
+            "lastSeenAt" TEXT,
+            "loginCount" INTEGER DEFAULT 0,
+            "twitchToken" TEXT
         )
     `);
-    try { db.run("ALTER TABLE users ADD COLUMN email TEXT"); } catch(e) {}
-    try { db.run("ALTER TABLE users ADD COLUMN twitchToken TEXT"); } catch(e) {}
-    dbSave();
-
-    // Migration depuis users.json
-    const USERS_FILE = path.join(__dirname, "users.json");
-    if (fs.existsSync(USERS_FILE)) {
-        try {
-            const data = JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
-            const count = db.exec("SELECT COUNT(*) as c FROM users")[0]?.values[0][0] || 0;
-            if (count === 0) {
-                for (const u of (data.users || [])) {
-                    try {
-                        db.run(
-                            "INSERT OR IGNORE INTO users (id,username,passwordHash,role,createdAt,lastLoginAt,lastSeenAt,loginCount) VALUES (?,?,?,?,?,?,?,?)",
-                            [u.id || Date.now().toString(36), u.username, u.passwordHash, u.role||"neutre", u.createdAt||new Date().toISOString(), u.lastLoginAt||null, u.lastSeenAt||null, u.loginCount||0]
-                        );
-                    } catch(e) {}
-                }
-                dbSave();
-                fs.renameSync(USERS_FILE, USERS_FILE + ".bak");
-                console.log("[AUTH] Migration users.json → SQLite OK :", (data.users||[]).length, "comptes");
-            }
-        } catch(e) { console.log("[AUTH] Erreur migration :", e.message); }
-    }
+    console.log("[AUTH] PostgreSQL prêt");
 }
 
-function dbRow(sql, params=[]) {
-    const res = db.exec(sql.replace(/\?/g, () => '?'), params);
-    if (!res.length || !res[0].values.length) return null;
-    const cols = res[0].columns;
-    const row = res[0].values[0];
-    return Object.fromEntries(cols.map((c,i) => [c, row[i]]));
+function dbSave() {} // no-op avec Postgres
+
+async function dbRow(sql, params=[]) {
+    // Convertit les ? en $1, $2...
+    let i = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++i}`);
+    const res = await pgPool.query(pgSql, params);
+    return res.rows[0] || null;
 }
 
-function dbAll(sql, params=[]) {
-    const res = db.exec(sql, params);
-    if (!res.length) return [];
-    const cols = res[0].columns;
-    return res[0].values.map(row => Object.fromEntries(cols.map((c,i) => [c, row[i]])));
+async function dbAll(sql, params=[]) {
+    let i = 0;
+    const pgSql = sql.replace(/\?/g, () => `$${++i}`);
+    const res = await pgPool.query(pgSql, params);
+    return res.rows;
 }
 
 function localAuthEnabled() {
     return config.localAuth?.enabled !== false;
 }
 
-function loadUsers() {
-    return { users: dbAll("SELECT * FROM users") };
+async function loadUsers() {
+    return { users: await dbAll('SELECT * FROM users') };
 }
 
 function saveUsers() {}
 
-function dbGetUser(username) {
-    return dbRow("SELECT * FROM users WHERE username = ?", [username]);
+async function dbGetUser(username) {
+    return dbRow('SELECT * FROM users WHERE username = $1', [username]);
 }
 
-function dbGetUserById(id) {
-    return dbRow("SELECT * FROM users WHERE id = ?", [id]);
+async function dbGetUserById(id) {
+    return dbRow('SELECT * FROM users WHERE id = $1', [id]);
 }
 
-function dbCreateUser(user) {
-    db.run(
-        "INSERT INTO users (id,username,email,passwordHash,role,createdAt,lastLoginAt,lastSeenAt,loginCount) VALUES (?,?,?,?,?,?,?,?,?)",
+async function dbCreateUser(user) {
+    await pgPool.query(
+        `INSERT INTO users (id,username,email,"passwordHash",role,"createdAt","lastLoginAt","lastSeenAt","loginCount")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
         [user.id, user.username, user.email||null, user.passwordHash, user.role, user.createdAt, user.lastLoginAt||null, user.lastSeenAt||null, user.loginCount||0]
     );
-    dbSave();
 }
 
-function dbUpdateUser(id, fields) {
+async function dbUpdateUser(id, fields) {
     const keys = Object.keys(fields);
-    const sets = keys.map(k => `${k} = ?`).join(", ");
-    db.run(`UPDATE users SET ${sets} WHERE id = ?`, [...keys.map(k => fields[k]), id]);
-    dbSave();
+    const sets = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+    await pgPool.query(
+        `UPDATE users SET ${sets} WHERE id = $${keys.length + 1}`,
+        [...keys.map(k => fields[k]), id]
+    );
 }
 
-function dbCountUsers() {
-    const res = db.exec("SELECT COUNT(*) as c FROM users");
-    return res[0]?.values[0][0] || 0;
+async function dbCountUsers() {
+    const res = await pgPool.query("SELECT COUNT(*) as c FROM users");
+    return parseInt(res.rows[0]?.c || 0);
 }
 
 // Init DB au démarrage
-initDb().then(() => console.log("[AUTH] SQLite prêt :", DB_FILE)).catch(e => console.error("[AUTH] Erreur SQLite :", e.message));
+initDb().catch(e => console.error("[AUTH] Erreur PostgreSQL :", e.message));
 
 
 function sanitizeUser(user) {
@@ -475,13 +450,13 @@ app.post("/auth/register", async (req, res) => {
         if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.redirect("/register.html?error=email_invalide");
         if (!email) return res.redirect("/register.html?error=email_requis");
         if (password.length < 8) return res.redirect("/register.html?error=mot_de_passe_trop_court");
-        if (dbGetUser(username)) return res.redirect("/register.html?error=compte_existe");
+        if (await dbGetUser(username)) return res.redirect("/register.html?error=compte_existe");
         if (email) {
-            const existing = dbRow("SELECT id FROM users WHERE email = ?", [email]);
+            const existing = await dbRow("SELECT id FROM users WHERE email = $1", [email]);
             if (existing) return res.redirect("/register.html?error=email_existe");
         }
 
-        const isFirst = dbCountUsers() === 0;
+        const isFirst = (await dbCountUsers()) === 0;
         const owner = String(config.localAuth?.ownerUsername || "reoxitof").toLowerCase();
         const role = (isFirst && config.localAuth?.firstUserAdmin !== false) || username === owner ? "admin" : "neutre";
         const now = new Date().toISOString();
@@ -496,7 +471,7 @@ app.post("/auth/register", async (req, res) => {
             lastSeenAt: now,
             loginCount: 1
         };
-        dbCreateUser(user);
+        await dbCreateUser(user);
         req.session.user = sanitizeUser(user);
         res.redirect("/dashboard.html");
     } catch (e) {
@@ -509,15 +484,15 @@ app.post("/auth/login", async (req, res) => {
         const identifier = String(req.body.username || "").toLowerCase().trim();
         const password = String(req.body.password || "");
         // Support login by username or email
-        let user = dbGetUser(identifier);
+        let user = await dbGetUser(identifier);
         if (!user && identifier.includes("@")) {
-            user = dbRow("SELECT * FROM users WHERE email = ?", [identifier]);
+            user = await dbRow("SELECT * FROM users WHERE email = $1", [identifier]);
         }
         if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
             return res.redirect("/login.html?error=identifiants_invalides");
         }
         const now = new Date().toISOString();
-        dbUpdateUser(user.id, { lastLoginAt: now, lastSeenAt: now, loginCount: (user.loginCount || 0) + 1 });
+        await dbUpdateUser(user.id, { lastLoginAt: now, lastSeenAt: now, loginCount: (user.loginCount || 0) + 1 });
         req.session.user = sanitizeUser({ ...user, lastLoginAt: now });
         res.redirect("/dashboard.html");
     } catch (e) {
@@ -525,13 +500,13 @@ app.post("/auth/login", async (req, res) => {
         res.redirect("/login.html?error=server_error");
     }
 });
-app.get("/auth/me", (req, res) => {
+app.get("/auth/me", async (req, res) => {
     if (req.session?.user?.id) {
         try {
-            const user = dbGetUserById(req.session.user.id);
+            const user = await dbGetUserById(req.session.user.id);
             if (user) {
                 const now = new Date().toISOString();
-                dbUpdateUser(user.id, { lastSeenAt: now });
+                await dbUpdateUser(user.id, { lastSeenAt: now });
                 req.session.user = sanitizeUser({ ...user, lastSeenAt: now });
             }
         } catch (e) {
@@ -544,42 +519,39 @@ app.post("/auth/logout", (req, res) => {
     req.session.destroy(() => res.json({ success: true }));
 });
 
-app.post("/auth/users/:id/role", requireAdmin, (req, res) => {
-    const user = dbGetUserById(req.params.id);
+app.post("/auth/users/:id/role", requireAdmin, async (req, res) => {
+    const user = await dbGetUserById(req.params.id);
     if (!user) return res.status(404).json({ error: "not_found" });
     const role = String(req.body.role || "");
     if (!isValidDashboardRole(role)) return res.status(400).json({ error: "bad_role" });
-    dbUpdateUser(user.id, { role });
+    await dbUpdateUser(user.id, { role });
     res.json({ success: true, user: sanitizeUser({ ...user, role }) });
 });
 
 /* TOKEN TWITCH MODO */
-app.post("/auth/twitch-token", requireLogin, (req, res) => {
+app.post("/auth/twitch-token", requireLogin, async (req, res) => {
     const token = String(req.body.token || "").trim();
     if (!token) return res.status(400).json({ error: "Token requis" });
-    // Nettoyer le token (retirer oauth: si présent)
     const cleanToken = token.replace(/^oauth:/i, "");
-    dbUpdateUser(req.session.user.id, { twitchToken: cleanToken });
+    await dbUpdateUser(req.session.user.id, { twitchToken: cleanToken });
     res.json({ success: true, message: "Token Twitch enregistré" });
 });
 
-app.delete("/auth/twitch-token", requireLogin, (req, res) => {
-    dbUpdateUser(req.session.user.id, { twitchToken: null });
+app.delete("/auth/twitch-token", requireLogin, async (req, res) => {
+    await dbUpdateUser(req.session.user.id, { twitchToken: null });
     res.json({ success: true, message: "Token Twitch supprimé" });
 });
 
-
 /* ROLE NEUTRE */
-app.post("/auth/users/:id/neutral", requireAdmin, (req, res) => {
-    const user = dbGetUserById(req.params.id);
+app.post("/auth/users/:id/neutral", requireAdmin, async (req, res) => {
+    const user = await dbGetUserById(req.params.id);
     if (!user) return res.status(404).json({ error: "not_found" });
-    dbUpdateUser(user.id, { role: "neutre" });
+    await dbUpdateUser(user.id, { role: "neutre" });
     res.json({ success: true, user: sanitizeUser({ ...user, role: "neutre" }) });
 });
 
-
-app.get("/auth/users", requireAdmin, (req, res) => {
-    const users = dbAll("SELECT * FROM users ORDER BY createdAt DESC");
+app.get("/auth/users", requireAdmin, async (req, res) => {
+    const users = await dbAll("SELECT * FROM users ORDER BY \"createdAt\" DESC");
     res.json({ users: users.map(sanitizeUser) });
 });
 
