@@ -141,9 +141,10 @@ body {
 .twitch-alert {
   position:absolute; top:240px; left:50%; transform:translateX(-50%) translateY(-40px) scale(0.95);
   width:640px; max-width:92vw; height:110px; z-index:20; opacity:0; pointer-events:none;
-  display:flex; align-items:stretch; background:transparent; transition:all 0.4s cubic-bezier(0.25,1,0.5,1);
+  display:flex; align-items:stretch; background:transparent; transition:opacity 0.5s ease, transform 0.5s ease;
 }
 .twitch-alert.show-alert { opacity:1; transform:translateX(-50%) translateY(0) scale(1); animation:alertSlideIn 0.6s cubic-bezier(0.25,1,0.5,1); }
+.twitch-alert.hide-alert { opacity:0 !important; transform:translateX(-50%) translateY(-40px) scale(0.95) !important; animation:none !important; transition:opacity 0.5s ease, transform 0.5s ease !important; }
 .alert-icon-box {
   flex-shrink:0; width:110px; height:100%; display:flex; align-items:center; justify-content:center;
   position:relative; z-index:2; background:linear-gradient(145deg,var(--gta-violet),var(--gta-violet-dim));

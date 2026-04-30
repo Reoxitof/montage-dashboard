@@ -267,7 +267,11 @@ function showAlert(type, name, extra = "") {
   playAlertSound(type);
 
   const duration = (CONFIG && CONFIG.overlay && CONFIG.overlay.alertDuration) ? CONFIG.overlay.alertDuration : 6000;
-  setTimeout(() => { box.className = "twitch-alert"; }, duration);
+  setTimeout(() => {
+    box.classList.remove("show-alert");
+    box.classList.add("hide-alert");
+    setTimeout(() => { box.className = "twitch-alert"; }, 600);
+  }, duration);
 }
 
 function playAlertSound(type) {
