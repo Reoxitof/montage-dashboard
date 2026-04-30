@@ -32,28 +32,58 @@
     "allowRegister": true
   },
   "fivem": {
-    "serverName": "My Server",
-    "endpoint": "",
+    "serverName": "BlueSky Roleplay",
+    "endpoint": "http://151.247.192.13:30120/dynamic.json",
     "corsProxy": ""
   },
   "overlay": {
-    "discordInvite": "",
+    "discordInvite": "discord.gg/w8TxNd6SwX",
     "rotatingTexts": [
+      "REOXITOF",
       "BIENVENUE SUR LE STREAM",
-      "FOLLOW POUR NE RIEN RATER"
+      "FOLLOW POUR NE RIEN RATER",
+      "ON EST LÀ POUR S'AMUSER"
     ],
     "activeProfile": "perso"
   },
   "overlayProfiles": {
-    "perso": {
-      "name": "YOUR NAME",
+    "bluesky": {
+      "name": "BlueSky Roleplay",
       "logoLeft": "/image/logo.png",
-      "logoRight": "",
-      "discordInvite": "",
+      "logoRight": "/image/logo2.png",
+      "discordInvite": "discord.gg/EZDacD76M4",
       "accentColor": "#9b59b6",
       "rotatingTexts": [
+        "BLUESKY ROLEPLAY",
+        "RECRUTEMENT STAFF ON"
+      ]
+    },
+    "storylife": {
+      "name": "StoryLife",
+      "logoLeft": "/image/logo.png",
+      "logoRight": "/image/storylife.png",
+      "discordInvite": "discord.gg/storylifefa",
+      "accentColor": "#00d4b4",
+      "fivemEndpoint": "https://servers-frontend.fivem.net/api/servers/single/zaaaxy",
+      "fivemType": "cfx",
+      "rotatingTexts": [
+        "STORYLIFE ROLEPLAY",
+        "REJOINS LA COMMUNAUTÉ",
+        "discord.gg/storylifefa",
+        "VIS TA MEILLEURE VIE RP"
+      ]
+    },
+    "perso": {
+      "name": "REOXITOF",
+      "logoLeft": "/image/logo.png",
+      "logoRight": "",
+      "discordInvite": "discord.gg/w8TxNd6SwX",
+      "accentColor": "#9b59b6",
+      "rotatingTexts": [
+        "REOXITOF",
         "BIENVENUE SUR LE STREAM",
-        "FOLLOW POUR NE RIEN RATER"
+        "FOLLOW POUR NE RIEN RATER",
+        "ON EST LÀ POUR S'AMUSER"
       ]
     }
   },
