@@ -227,7 +227,7 @@ app.use(session({
 const { Pool } = require("pg");
 
 const pgPool = new Pool({
-    host:     process.env.PG_HOST     || "postgres-3ixu.internal",
+    host:     process.env.PG_HOST     || "postgres-5ljq.internal",
     port:     parseInt(process.env.PG_PORT || "5432"),
     database: process.env.PG_DB       || "mydb",
     user:     process.env.PG_USER     || "postgres",
