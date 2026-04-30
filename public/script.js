@@ -266,7 +266,7 @@ function showAlert(type, name, extra = "") {
 
   playAlertSound(type);
 
-  const duration = CONFIG ? CONFIG.overlay.alertDuration : 5500;
+  const duration = (CONFIG && CONFIG.overlay && CONFIG.overlay.alertDuration) ? CONFIG.overlay.alertDuration : 6000;
   setTimeout(() => { box.className = "twitch-alert"; }, duration);
 }
 
