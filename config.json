@@ -3,7 +3,7 @@
     "port": 8080,
     "mode": "public",
     "host": "0.0.0.0",
-    "publicUrl": ""
+    "publicUrl": "https://montage-dashboard.sliplane.app"
   },
   "obs": {
     "enabled": false,
