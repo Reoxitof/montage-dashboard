@@ -2828,6 +2828,31 @@ app.post("/moderation/bannedWords", (req, res) => {
 
 
 
+/* ================= TWITCH API — APP TOKEN ================= */
+
+let _twitchAppToken = null;
+let _twitchAppTokenExpiry = 0;
+
+async function getTwitchAppToken() {
+    if (_twitchAppToken && Date.now() < _twitchAppTokenExpiry) return _twitchAppToken;
+    if (!TWITCH_CLIENT_ID || !config.twitchApi?.clientSecret) return null;
+    try {
+        const r = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${config.twitchApi.clientSecret}&grant_type=client_credentials`, { method: "POST" });
+        const data = await r.json();
+        if (data.access_token) {
+            _twitchAppToken = data.access_token;
+            _twitchAppTokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+            return _twitchAppToken;
+        }
+    } catch(e) { console.log("[TWITCH] App token error:", e.message); }
+    return null;
+}
+
+function getTwitchAuthHeaders() {
+    const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+    return { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}` };
+}
+
 /* ================= TWITCH API — CHANNEL INFO ================= */
 
 app.get("/twitch/channel-info", requireModOrAdmin, async (req, res) => {
@@ -2847,19 +2872,18 @@ app.get("/twitch/search-game", requireModOrAdmin, async (req, res) => {
     const q = String(req.query.q || "").trim();
     if (!q) return res.json({ games: [] });
     if (!TWITCH_CLIENT_ID) return res.status(400).json({ error: "Twitch API non configurée" });
-    const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+    const headers = getTwitchAuthHeaders();
     try {
-        const r = await fetch(`https://api.twitch.tv/helix/games?name=${encodeURIComponent(q)}`, {
-            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}` }
-        });
-        const exact = await r.json();
-        const r2 = await fetch(`https://api.twitch.tv/helix/search/categories?query=${encodeURIComponent(q)}&first=8`, {
-            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}` }
-        });
+        const r2 = await fetch(`https://api.twitch.tv/helix/search/categories?query=${encodeURIComponent(q)}&first=8`, { headers });
         const search = await r2.json();
-        const games = [...(exact.data || []), ...(search.data || [])].filter((g, i, arr) => arr.findIndex(x => x.id === g.id) === i).slice(0, 8);
+        console.log("[TWITCH SEARCH] status:", r2.status, "data:", JSON.stringify(search).slice(0, 200));
+        if (!r2.ok) return res.status(400).json({ error: search.message || "Token invalide ou expiré" });
+        const games = (search.data || []).slice(0, 8);
         res.json({ games });
-    } catch(e) { res.status(500).json({ error: e.message }); }
+    } catch(e) {
+        console.log("[TWITCH SEARCH] error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
 });
 
 app.post("/twitch/update-channel", requireModOrAdmin, async (req, res) => {
