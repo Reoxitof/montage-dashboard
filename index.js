@@ -1500,6 +1500,9 @@ function sendAlert(alertType, name, extra = "") {
     io.emit("state", state);
     io.emit("alertTracking", { recentFollows: state.recentFollows || [], recentSubs: state.recentSubs || [], recentTips: state.recentTips || [], recentCheers: state.recentCheers || [], recentRaids: state.recentRaids || [], alertLog: state.alertLog || [], stats: state.stats, subGoal: state.subGoal });
     savePersistentState();
+
+    // Effacer l'alerte après 8s pour éviter qu'elle reste sur rechargement
+    setTimeout(() => { state.alert = null; }, 8000);
 }
 
 function sendVoteCommand(username, message, tags = {}) {
@@ -1918,7 +1921,10 @@ app.get("/fivem/status", async (req, res) => {
 /* ================= ROUTES — STATE ================= */
 
 app.get("/state", (req, res) => {
-    res.json(state);
+    // Ne pas renvoyer une alerte trop vieille (évite qu'elle reste sur rechargement)
+    const alertAge = state.alert?.time ? Date.now() - new Date(state.alert.time).getTime() : Infinity;
+    const safeState = { ...state, alert: alertAge < 7000 ? state.alert : null };
+    res.json(safeState);
 });
 
 /* ================= ROUTES — TEST ALERTS ================= */
