@@ -16,19 +16,19 @@
     "token": ""
   },
   "twitch": {
-    "channel": "",
-    "owner": "",
-    "botUsername": ""
+    "channel": "reoxitof",
+    "owner": "reoxitof",
+    "botUsername": "reoxitof"
   },
   "twitchApi": {
     "clientId": "",
-    "oauthToken": "",
+    "oauthToken": "oauth:mjhvbein703orrfzkpxh16buhe1l7p",
     "broadcasterId": ""
   },
   "localAuth": {
     "enabled": true,
     "sessionSecret": "CHANGE_ME_ULTRA_SECURE_SESSION_SECRET",
-    "ownerUsername": "",
+    "ownerUsername": "reoxitof",
     "allowRegister": true
   },
   "fivem": {
