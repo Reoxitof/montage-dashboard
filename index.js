@@ -2828,6 +2828,60 @@ app.post("/moderation/bannedWords", (req, res) => {
 
 
 
+/* ================= TWITCH API — CHANNEL INFO ================= */
+
+app.get("/twitch/channel-info", requireModOrAdmin, async (req, res) => {
+    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return res.status(400).json({ error: "Twitch API non configurée (CLIENT_ID ou BROADCASTER_ID manquant)" });
+    const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+    try {
+        const r = await fetch(`https://api.twitch.tv/helix/channels?broadcaster_id=${TWITCH_BROADCASTER_ID}`, {
+            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}` }
+        });
+        const data = await r.json();
+        if (!r.ok) return res.status(400).json({ error: data.message || "Erreur Twitch" });
+        res.json(data.data?.[0] || {});
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get("/twitch/search-game", requireModOrAdmin, async (req, res) => {
+    const q = String(req.query.q || "").trim();
+    if (!q) return res.json({ games: [] });
+    if (!TWITCH_CLIENT_ID) return res.status(400).json({ error: "Twitch API non configurée" });
+    const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+    try {
+        const r = await fetch(`https://api.twitch.tv/helix/games?name=${encodeURIComponent(q)}`, {
+            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}` }
+        });
+        const exact = await r.json();
+        const r2 = await fetch(`https://api.twitch.tv/helix/search/categories?query=${encodeURIComponent(q)}&first=8`, {
+            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}` }
+        });
+        const search = await r2.json();
+        const games = [...(exact.data || []), ...(search.data || [])].filter((g, i, arr) => arr.findIndex(x => x.id === g.id) === i).slice(0, 8);
+        res.json({ games });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/twitch/update-channel", requireModOrAdmin, async (req, res) => {
+    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return res.status(400).json({ error: "Twitch API non configurée" });
+    const { title, gameId, language } = req.body;
+    if (!title) return res.status(400).json({ error: "Titre requis" });
+    const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+    try {
+        const body = { title: String(title).slice(0, 140) };
+        if (gameId) body.game_id = String(gameId);
+        if (language) body.broadcaster_language = String(language);
+        const r = await fetch(`https://api.twitch.tv/helix/channels?broadcaster_id=${TWITCH_BROADCASTER_ID}`, {
+            method: "PATCH",
+            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}`, "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        if (r.status === 204) return res.json({ success: true });
+        const data = await r.json();
+        res.status(r.ok ? 200 : 400).json(r.ok ? { success: true } : { error: data.message || "Erreur Twitch" });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 /* ================= OBS API — ADMIN ONLY ================= */
 
 app.get("/obs/status", requireAdmin, async (req, res) => {
