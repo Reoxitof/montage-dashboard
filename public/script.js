@@ -280,8 +280,8 @@ function playAlertSound(type) {
   const soundUrl = alertSounds[type];
   if (!soundUrl) return;
   const audio = new Audio(soundUrl);
-  const raidVol = CONFIG ? CONFIG.overlay.raidVolume : 0.85;
-  const defaultVol = CONFIG ? CONFIG.overlay.alertVolume : 0.65;
+  const raidVol = (CONFIG && CONFIG.overlay && CONFIG.overlay.raidVolume) ? CONFIG.overlay.raidVolume : 0.85;
+  const defaultVol = (CONFIG && CONFIG.overlay && CONFIG.overlay.alertVolume) ? CONFIG.overlay.alertVolume : 0.65;
   audio.volume = type === "raid-latest" ? raidVol : defaultVol;
   audio.play().catch(err => console.log("Erreur audio :", err));
 }
