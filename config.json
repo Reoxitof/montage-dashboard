@@ -21,9 +21,9 @@
     "botUsername": "reoxitof"
   },
   "twitchApi": {
-    "clientId": "",
+    "clientId": "hct8emjogyhew0chqsfi9rb6vdwt3h",
     "oauthToken": "oauth:mjhvbein703orrfzkpxh16buhe1l7p",
-    "broadcasterId": ""
+    "broadcasterId": "47064304"
   },
   "localAuth": {
     "enabled": true,
