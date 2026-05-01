@@ -3186,10 +3186,139 @@ app.post("/obs/alert", requireAdmin, async (req, res) => {
 });
 
 
-// Démarrage async pour attendre le chargement du thème depuis DB
+/* ================= ROUTES — BOTS PANEL ================= */
+
+// Config bots stockée en mémoire (chargée depuis DB au démarrage)
+let botsConfig = {
+    discord: {
+        deployHook: process.env.DISCORD_BOT_DEPLOY_HOOK || "",
+        publicUrl: "https://discord-bot-3cm7nt.sliplane.app",
+        vars: {}
+    },
+    twitch: {
+        deployHook: process.env.TWITCH_BOT_DEPLOY_HOOK || "",
+        publicUrl: "https://bot-twitch.sliplane.app",
+        vars: {}
+    }
+};
+
+// Buffer de logs en mémoire (100 entrées max par bot)
+const botsLogs = { discord: [], twitch: [] };
+
+function pushBotLog(bot, level, message) {
+    const entry = { time: new Date().toISOString(), level, message: String(message).slice(0, 500) };
+    botsLogs[bot] = botsLogs[bot] || [];
+    botsLogs[bot].unshift(entry);
+    if (botsLogs[bot].length > 100) botsLogs[bot].pop();
+    io.emit("botLog", { bot, ...entry });
+}
+
+// Charger la config bots depuis PostgreSQL
+async function loadBotsConfig() {
+    try {
+        await pgPool.query(`CREATE TABLE IF NOT EXISTS bots_config (key TEXT PRIMARY KEY, value TEXT)`);
+        const res = await pgPool.query(`SELECT key, value FROM bots_config`);
+        for (const row of res.rows) {
+            try {
+                const data = JSON.parse(row.value);
+                if (row.key === "discord") Object.assign(botsConfig.discord, data);
+                if (row.key === "twitch") Object.assign(botsConfig.twitch, data);
+            } catch(e) {}
+        }
+        console.log("[BOTS] Config chargée depuis DB");
+    } catch(e) {
+        console.log("[BOTS] Erreur chargement config :", e.message);
+    }
+}
+
+async function saveBotsConfig(bot) {
+    try {
+        const val = JSON.stringify(botsConfig[bot]);
+        await pgPool.query(
+            `INSERT INTO bots_config (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2`,
+            [bot, val]
+        );
+    } catch(e) {
+        console.log("[BOTS] Erreur sauvegarde config :", e.message);
+    }
+}
+
+// Statut d'un bot via healthcheck HTTP
+async function getBotStatus(bot) {
+    const url = botsConfig[bot]?.publicUrl;
+    if (!url) return { online: false, error: "URL non configurée" };
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const r = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+        return { online: r.ok, statusCode: r.status };
+    } catch(e) {
+        return { online: false, error: e.name === "AbortError" ? "Timeout" : e.message };
+    }
+}
+
+// GET /bots/status — statut des deux bots
+app.get("/bots/status", requireDashboardAuth, async (req, res) => {
+    const [discord, twitch] = await Promise.all([
+        getBotStatus("discord"),
+        getBotStatus("twitch")
+    ]);
+    res.json({ discord, twitch });
+});
+
+// GET /bots/logs/:bot — logs en mémoire
+app.get("/bots/logs/:bot", requireDashboardAuth, (req, res) => {
+    const bot = req.params.bot;
+    if (!["discord", "twitch"].includes(bot)) return res.status(400).json({ error: "bot invalide" });
+    res.json({ logs: botsLogs[bot] || [] });
+});
+
+// POST /bots/restart/:bot — redéploie via Sliplane Deploy Hook
+app.post("/bots/restart/:bot", requireAdmin, async (req, res) => {
+    const bot = req.params.bot;
+    if (!["discord", "twitch"].includes(bot)) return res.status(400).json({ error: "bot invalide" });
+    const hook = botsConfig[bot]?.deployHook;
+    if (!hook) return res.status(400).json({ error: "Deploy hook non configuré" });
+    try {
+        const r = await fetch(hook, { method: "GET", signal: AbortSignal.timeout(10000) });
+        pushBotLog(bot, "info", `Redémarrage déclenché par ${req.session?.user?.username || "admin"}`);
+        res.json({ success: true, status: r.status });
+    } catch(e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// GET /bots/config/:bot — récupère la config vars
+app.get("/bots/config/:bot", requireAdmin, (req, res) => {
+    const bot = req.params.bot;
+    if (!["discord", "twitch"].includes(bot)) return res.status(400).json({ error: "bot invalide" });
+    res.json({
+        deployHook: botsConfig[bot]?.deployHook || "",
+        publicUrl: botsConfig[bot]?.publicUrl || "",
+        vars: botsConfig[bot]?.vars || {}
+    });
+});
+
+// POST /bots/config/:bot — sauvegarde la config vars
+app.post("/bots/config/:bot", requireAdmin, async (req, res) => {
+    const bot = req.params.bot;
+    if (!["discord", "twitch"].includes(bot)) return res.status(400).json({ error: "bot invalide" });
+    const { deployHook, publicUrl, vars } = req.body;
+    if (deployHook !== undefined) botsConfig[bot].deployHook = String(deployHook).trim();
+    if (publicUrl !== undefined) botsConfig[bot].publicUrl = String(publicUrl).trim();
+    if (vars && typeof vars === "object") botsConfig[bot].vars = vars;
+    await saveBotsConfig(bot);
+    pushBotLog(bot, "info", `Config mise à jour par ${req.session?.user?.username || "admin"}`);
+    res.json({ success: true });
+});
+
+// Charger la config bots au démarrage (appelé dans start())
+
 (async () => {
     await loadSavedTheme();
     await loadSavedProfile();
+    await loadBotsConfig();
 server.listen(APP_PORT, APP_HOST, () => {
     console.log("═══════════════════════════════════════════");
     console.log(" Reoxitof Overlay — NUI Edition v3.0");

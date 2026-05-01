@@ -7004,6 +7004,7 @@ body[data-user-role="modo"] .admin-only-action {
 
       <div class="sidebar-section-label">Config</div>
       <button class="tab admin-only-action" onclick="switchTab('theme')" data-target="tab-theme"><i class="fa-solid fa-palette"></i> Thème <span class="badge-admin">ADMIN</span></button>
+      <button class="tab admin-only-action" onclick="switchTab('bots')" data-target="tab-bots"><i class="fa-solid fa-robot"></i> Bots <span class="badge-admin">ADMIN</span></button>
       <button class="tab admin-only-action" onclick="switchTab('users')" data-target="tab-users"><i class="fa-solid fa-users-gear"></i> Utilisateurs <span class="badge-admin">ADMIN</span></button>
       <button class="tab admin-only-action" onclick="switchTab('settings')" data-target="tab-settings"><i class="fa-solid fa-gear"></i> Réglages <span class="badge-admin">ADMIN</span></button>
     </nav>
@@ -9224,6 +9225,279 @@ body[data-user-role="modo"] .admin-only-action {
         </div>
       </div>
 
+    </div>
+
+    <!-- ═══ TAB: BOTS ═══ -->
+    <div class="tab-content" id="tab-bots" style="display:none">
+      <style>
+        .bots-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+        @media(max-width:900px){ .bots-grid { grid-template-columns: 1fr; } }
+        .bot-status-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+        .bot-status-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+        .bot-status-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .bot-status-icon.discord { background: rgba(88,101,242,0.2); color: #7289da; }
+        .bot-status-icon.twitch { background: rgba(145,70,255,0.2); color: #bf94ff; }
+        .bot-status-name { font-size: 14px; font-weight: 800; letter-spacing: 1px; }
+        .bot-status-url { font-size: 10px; color: var(--white-dim); font-family: monospace; margin-top: 2px; }
+        .bot-online-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px rgba(226,64,64,.5); margin-left: auto; flex-shrink: 0; }
+        .bot-online-dot.online { background: var(--green); box-shadow: 0 0 8px rgba(89,214,74,.5); }
+        .bot-online-label { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--white-dim); margin-left: 6px; }
+        .bot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        .bot-logs-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; max-height: 180px; overflow-y: auto; font-family: monospace; font-size: 11px; line-height: 1.6; margin-top: 12px; }
+        .bot-log-entry { display: flex; gap: 8px; }
+        .bot-log-time { color: var(--violet-bright); min-width: 60px; flex-shrink: 0; }
+        .bot-log-level { min-width: 36px; flex-shrink: 0; }
+        .bot-log-level.info { color: var(--blue); }
+        .bot-log-level.warn { color: var(--orange); }
+        .bot-log-level.error { color: var(--red); }
+        .bot-log-msg { color: var(--white-dim); word-break: break-all; }
+        .bots-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        @media(max-width:900px){ .bots-config-grid { grid-template-columns: 1fr; } }
+        .bots-config-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+        .bots-config-title { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--violet-bright); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .bots-var-row { display: grid; grid-template-columns: 140px 1fr; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .bots-var-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--white-dim); font-family: monospace; }
+        .bots-save-status { font-size: 11px; font-weight: 700; color: var(--green); letter-spacing: 1px; margin-top: 8px; display: none; }
+      </style>
+
+      <!-- Statut -->
+      <div class="section-title"><i class="fa-solid fa-circle-dot"></i> Statut des bots</div>
+      <div class="bots-grid">
+
+        <!-- Bot Discord -->
+        <div class="bot-status-card">
+          <div class="bot-status-header">
+            <div class="bot-status-icon discord"><i class="fa-brands fa-discord"></i></div>
+            <div>
+              <div class="bot-status-name">Bot Discord</div>
+              <div class="bot-status-url" id="botDiscordUrl">discord-bot-3cm7nt.sliplane.app</div>
+            </div>
+            <div id="botDiscordDot" class="bot-online-dot"></div>
+            <span id="botDiscordLabel" class="bot-online-label">—</span>
+          </div>
+          <div class="bot-actions">
+            <button class="btn" onclick="botsRestart('discord')" id="btnRestartDiscord"><i class="fa-solid fa-rotate-right"></i> Redémarrer</button>
+            <button class="btn btn-outline" onclick="botsRefreshStatus()"><i class="fa-solid fa-arrows-rotate"></i> Actualiser</button>
+          </div>
+          <div class="bot-logs-box" id="botDiscordLogs">
+            <div style="color:var(--white-dim);text-align:center;padding:20px 0;">Chargement des logs...</div>
+          </div>
+        </div>
+
+        <!-- Bot Twitch -->
+        <div class="bot-status-card">
+          <div class="bot-status-header">
+            <div class="bot-status-icon twitch"><i class="fa-brands fa-twitch"></i></div>
+            <div>
+              <div class="bot-status-name">Bot Twitch</div>
+              <div class="bot-status-url" id="botTwitchUrl">bot-twitch.sliplane.app</div>
+            </div>
+            <div id="botTwitchDot" class="bot-online-dot"></div>
+            <span id="botTwitchLabel" class="bot-online-label">—</span>
+          </div>
+          <div class="bot-actions">
+            <button class="btn" onclick="botsRestart('twitch')" id="btnRestartTwitch"><i class="fa-solid fa-rotate-right"></i> Redémarrer</button>
+            <button class="btn btn-outline" onclick="botsRefreshStatus()"><i class="fa-solid fa-arrows-rotate"></i> Actualiser</button>
+          </div>
+          <div class="bot-logs-box" id="botTwitchLogs">
+            <div style="color:var(--white-dim);text-align:center;padding:20px 0;">Chargement des logs...</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Config -->
+      <div class="section-title" style="margin-top:8px;"><i class="fa-solid fa-sliders"></i> Configuration</div>
+      <div class="bots-config-grid">
+
+        <!-- Config Discord -->
+        <div class="bots-config-card">
+          <div class="bots-config-title"><i class="fa-brands fa-discord"></i> Bot Discord</div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>Deploy Hook Sliplane</label>
+            <input class="input-field" id="cfgDiscordHook" type="password" placeholder="https://api.sliplane.io/deploy/..." />
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>URL publique</label>
+            <input class="input-field" id="cfgDiscordUrl" placeholder="https://discord-bot-3cm7nt.sliplane.app" />
+          </div>
+          <div class="bots-config-title" style="margin-top:14px;"><i class="fa-solid fa-key"></i> Variables d'env</div>
+          <div class="bots-var-row"><span class="bots-var-label">BOT_TOKEN</span><input class="input-field" id="cfgDiscordBotToken" type="password" placeholder="••••••••" /></div>
+          <div class="bots-var-row"><span class="bots-var-label">GUILD_ID</span><input class="input-field" id="cfgDiscordGuildId" placeholder="123456789" /></div>
+          <div class="bots-var-row"><span class="bots-var-label">TWITCH_CLIENT_ID</span><input class="input-field" id="cfgDiscordTwitchId" placeholder="hct8emjog..." /></div>
+          <div class="bots-var-row"><span class="bots-var-label">LIVE_ALERT_CHANNEL</span><input class="input-field" id="cfgDiscordLiveChannel" placeholder="ID du salon" /></div>
+          <div class="bots-var-row"><span class="bots-var-label">WELCOME_CHANNEL</span><input class="input-field" id="cfgDiscordWelcomeChannel" placeholder="ID du salon" /></div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn" onclick="botsSaveConfig('discord')"><i class="fa-solid fa-floppy-disk"></i> Sauvegarder</button>
+          </div>
+          <div class="bots-save-status" id="cfgDiscordStatus">✅ Sauvegardé</div>
+        </div>
+
+        <!-- Config Twitch Bot -->
+        <div class="bots-config-card">
+          <div class="bots-config-title"><i class="fa-brands fa-twitch"></i> Bot Twitch</div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>Deploy Hook Sliplane</label>
+            <input class="input-field" id="cfgTwitchHook" type="password" placeholder="https://api.sliplane.io/deploy/..." />
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label>URL publique</label>
+            <input class="input-field" id="cfgTwitchUrl" placeholder="https://bot-twitch.sliplane.app" />
+          </div>
+          <div class="bots-config-title" style="margin-top:14px;"><i class="fa-solid fa-key"></i> Variables d'env</div>
+          <div class="bots-var-row"><span class="bots-var-label">TWITCH_CHANNEL</span><input class="input-field" id="cfgTwitchChannel" placeholder="reoxitof" /></div>
+          <div class="bots-var-row"><span class="bots-var-label">TWITCH_OAUTH</span><input class="input-field" id="cfgTwitchOauth" type="password" placeholder="oauth:••••••" /></div>
+          <div class="bots-var-row"><span class="bots-var-label">TWITCH_CLIENT_ID</span><input class="input-field" id="cfgTwitchClientId" placeholder="hct8emjog..." /></div>
+          <div class="btn-row" style="margin-top:12px;">
+            <button class="btn" onclick="botsSaveConfig('twitch')"><i class="fa-solid fa-floppy-disk"></i> Sauvegarder</button>
+          </div>
+          <div class="bots-save-status" id="cfgTwitchStatus">✅ Sauvegardé</div>
+        </div>
+
+      </div>
+
+      <script>
+        // ── Statut ──────────────────────────────────────────
+        async function botsRefreshStatus() {
+          try {
+            const data = await fetch("/bots/status").then(r => r.json());
+            for (const bot of ["discord", "twitch"]) {
+              const d = data[bot] || {};
+              const dot = document.getElementById(`bot${bot.charAt(0).toUpperCase()+bot.slice(1)}Dot`);
+              const lbl = document.getElementById(`bot${bot.charAt(0).toUpperCase()+bot.slice(1)}Label`);
+              if (dot) { dot.className = "bot-online-dot" + (d.online ? " online" : ""); }
+              if (lbl) { lbl.textContent = d.online ? "EN LIGNE" : (d.error || "HORS LIGNE"); lbl.style.color = d.online ? "var(--green)" : "var(--red)"; }
+            }
+          } catch(e) {}
+        }
+
+        // ── Logs ────────────────────────────────────────────
+        async function botsLoadLogs(bot) {
+          try {
+            const data = await fetch(`/bots/logs/${bot}`).then(r => r.json());
+            renderBotLogs(bot, data.logs || []);
+          } catch(e) {}
+        }
+
+        function renderBotLogs(bot, logs) {
+          const box = document.getElementById(`bot${bot.charAt(0).toUpperCase()+bot.slice(1)}Logs`);
+          if (!box) return;
+          if (!logs.length) { box.innerHTML = '<div style="color:var(--white-dim);text-align:center;padding:20px 0;">Aucun log</div>'; return; }
+          box.innerHTML = logs.map(l => {
+            const t = new Date(l.time).toLocaleTimeString("fr-FR");
+            return `<div class="bot-log-entry"><span class="bot-log-time">${t}</span><span class="bot-log-level ${l.level}">${l.level.toUpperCase()}</span><span class="bot-log-msg">${l.message}</span></div>`;
+          }).join("");
+        }
+
+        // ── Redémarrer ──────────────────────────────────────
+        async function botsRestart(bot) {
+          const btn = document.getElementById(`btnRestart${bot.charAt(0).toUpperCase()+bot.slice(1)}`);
+          if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> En cours...'; }
+          try {
+            const data = await fetch(`/bots/restart/${bot}`, { method: "POST" }).then(r => r.json());
+            showToast(data.success ? `✅ Bot ${bot} redémarré` : `❌ ${data.error || "Erreur"}`);
+            setTimeout(() => botsRefreshStatus(), 3000);
+          } catch(e) { showToast("❌ Erreur réseau"); }
+          finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> Redémarrer'; } }
+        }
+
+        // ── Config ──────────────────────────────────────────
+        async function botsLoadConfig(bot) {
+          try {
+            const data = await fetch(`/bots/config/${bot}`).then(r => r.json());
+            if (bot === "discord") {
+              document.getElementById("cfgDiscordHook").value = data.deployHook || "";
+              document.getElementById("cfgDiscordUrl").value = data.publicUrl || "";
+              document.getElementById("cfgDiscordBotToken").value = data.vars?.BOT_TOKEN || "";
+              document.getElementById("cfgDiscordGuildId").value = data.vars?.GUILD_ID || "";
+              document.getElementById("cfgDiscordTwitchId").value = data.vars?.TWITCH_CLIENT_ID || "";
+              document.getElementById("cfgDiscordLiveChannel").value = data.vars?.LIVE_ALERT_CHANNEL_ID || "";
+              document.getElementById("cfgDiscordWelcomeChannel").value = data.vars?.WELCOME_CHANNEL_ID || "";
+              if (data.publicUrl) document.getElementById("botDiscordUrl").textContent = data.publicUrl;
+            } else {
+              document.getElementById("cfgTwitchHook").value = data.deployHook || "";
+              document.getElementById("cfgTwitchUrl").value = data.publicUrl || "";
+              document.getElementById("cfgTwitchChannel").value = data.vars?.TWITCH_CHANNEL || "";
+              document.getElementById("cfgTwitchOauth").value = data.vars?.TWITCH_OAUTH || "";
+              document.getElementById("cfgTwitchClientId").value = data.vars?.TWITCH_CLIENT_ID || "";
+              if (data.publicUrl) document.getElementById("botTwitchUrl").textContent = data.publicUrl;
+            }
+          } catch(e) {}
+        }
+
+        async function botsSaveConfig(bot) {
+          const statusEl = document.getElementById(`cfg${bot.charAt(0).toUpperCase()+bot.slice(1)}Status`);
+          let deployHook, publicUrl, vars;
+          if (bot === "discord") {
+            deployHook = document.getElementById("cfgDiscordHook").value.trim();
+            publicUrl = document.getElementById("cfgDiscordUrl").value.trim();
+            vars = {
+              BOT_TOKEN: document.getElementById("cfgDiscordBotToken").value.trim(),
+              GUILD_ID: document.getElementById("cfgDiscordGuildId").value.trim(),
+              TWITCH_CLIENT_ID: document.getElementById("cfgDiscordTwitchId").value.trim(),
+              LIVE_ALERT_CHANNEL_ID: document.getElementById("cfgDiscordLiveChannel").value.trim(),
+              WELCOME_CHANNEL_ID: document.getElementById("cfgDiscordWelcomeChannel").value.trim(),
+            };
+          } else {
+            deployHook = document.getElementById("cfgTwitchHook").value.trim();
+            publicUrl = document.getElementById("cfgTwitchUrl").value.trim();
+            vars = {
+              TWITCH_CHANNEL: document.getElementById("cfgTwitchChannel").value.trim(),
+              TWITCH_OAUTH: document.getElementById("cfgTwitchOauth").value.trim(),
+              TWITCH_CLIENT_ID: document.getElementById("cfgTwitchClientId").value.trim(),
+            };
+          }
+          try {
+            const r = await fetch(`/bots/config/${bot}`, { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ deployHook, publicUrl, vars }) });
+            const data = await r.json();
+            if (data.success) {
+              if (statusEl) { statusEl.style.display = "block"; setTimeout(() => { statusEl.style.display = "none"; }, 3000); }
+              if (publicUrl) document.getElementById(`bot${bot.charAt(0).toUpperCase()+bot.slice(1)}Url`).textContent = publicUrl;
+              showToast(`✅ Config ${bot} sauvegardée`);
+            } else { showToast(`❌ ${data.error}`); }
+          } catch(e) { showToast("❌ Erreur réseau"); }
+        }
+
+        // ── Socket.IO — logs temps réel ─────────────────────
+        document.addEventListener("DOMContentLoaded", () => {
+          if (typeof io !== "undefined") {
+            const s = io();
+            s.on("botLog", (data) => {
+              const box = document.getElementById(`bot${data.bot.charAt(0).toUpperCase()+data.bot.slice(1)}Logs`);
+              if (!box) return;
+              const t = new Date(data.time).toLocaleTimeString("fr-FR");
+              const entry = `<div class="bot-log-entry"><span class="bot-log-time">${t}</span><span class="bot-log-level ${data.level}">${data.level.toUpperCase()}</span><span class="bot-log-msg">${data.message}</span></div>`;
+              if (box.querySelector("[style*='text-align:center']")) box.innerHTML = "";
+              box.insertAdjacentHTML("afterbegin", entry);
+              while (box.children.length > 50) box.removeChild(box.lastChild);
+            });
+          }
+        });
+
+        // ── Init au chargement de l'onglet ──────────────────
+        document.addEventListener("DOMContentLoaded", () => {
+          const origSwitch = window.switchTab;
+          const _botsInit = () => {
+            botsRefreshStatus();
+            botsLoadLogs("discord");
+            botsLoadLogs("twitch");
+            botsLoadConfig("discord");
+            botsLoadConfig("twitch");
+            setInterval(botsRefreshStatus, 30000);
+          };
+          // Hook sur switchTab pour charger au premier accès
+          let _botsLoaded = false;
+          const _patchBots = () => {
+            if (typeof window.switchTab !== "function") { setTimeout(_patchBots, 100); return; }
+            const _orig = window.switchTab;
+            window.switchTab = function(name, btn) {
+              _orig(name, btn);
+              if (name === "bots" && !_botsLoaded) { _botsLoaded = true; _botsInit(); }
+            };
+          };
+          _patchBots();
+        });
+      </script>
     </div>
 
     <!-- ═══ TAB: SETTINGS ═══ -->
