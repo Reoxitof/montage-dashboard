@@ -343,7 +343,7 @@ async function loadSavedProfile() {
 
     }
 }
-loadSavedProfile();
+// loadSavedProfile() est appelé dans start() async
 
 
 function sanitizeUser(user) {
@@ -1367,7 +1367,7 @@ async function loadSavedTheme() {
         console.log('[THEME] Erreur chargement thème DB :', e.message);
     }
 }
-loadSavedTheme();
+// loadSavedTheme() est appelé dans start() avant server.listen
 
 /* ================= VOTE STATE ================= */
 
@@ -3123,6 +3123,10 @@ app.post("/obs/alert", requireAdmin, async (req, res) => {
 });
 
 
+// Démarrage async pour attendre le chargement du thème depuis DB
+(async () => {
+    await loadSavedTheme();
+    await loadSavedProfile();
 server.listen(APP_PORT, APP_HOST, () => {
     console.log("═══════════════════════════════════════════");
     console.log(" BlueSky Overlay — NUI Edition v3.0");
@@ -3174,4 +3178,5 @@ server.listen(APP_PORT, APP_HOST, () => {
         process.on("SIGINT", () => { try { bridge.kill(); } catch (e) {} process.exit(); });
     }
 });
+})();
 
