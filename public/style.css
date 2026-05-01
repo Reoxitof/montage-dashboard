@@ -426,8 +426,8 @@ button.danger { background:linear-gradient(135deg,#e24040,#a81818); }
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #e879f9;
-  box-shadow: 0 0 6px #e879f9, 0 0 12px rgba(232,121,249,0.4);
+  background: var(--nui-accent);
+  box-shadow: 0 0 6px var(--nui-accent), 0 0 12px rgba(var(--vc-r),var(--vc-g),var(--vc-b),0.4);
   animation: dotPulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
 }

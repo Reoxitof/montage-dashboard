@@ -114,6 +114,13 @@ function applyTheme(theme) {
   }
   if (theme.accent) {
     root.style.setProperty("--nui-accent", theme.accent);
+    // Variables RGB pour l'accent
+    const ar = parseInt(theme.accent.slice(1,3),16);
+    const ag = parseInt(theme.accent.slice(3,5),16);
+    const ab = parseInt(theme.accent.slice(5,7),16);
+    root.style.setProperty("--vc-ar", ar);
+    root.style.setProperty("--vc-ag", ag);
+    root.style.setProperty("--vc-ab", ab);
   }
 }
 
