@@ -199,23 +199,28 @@
 
 <div class="container">
 
-  <!-- Avatar -->
+    <!-- Avatar -->
   <div class="avatar-wrap">
     <div class="avatar-ring">
       <div class="avatar-inner">
-        <img src="https://static-cdn.jtvnw.net/jtv_user_pictures/reoxitof-profile_image-300x300.png"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
-             alt="Reoxitof" />
-        <div class="avatar-placeholder" style="display:none;"><i class="fa-solid fa-user"></i></div>
+        <img id="avatarImg" src="" alt="Reoxitof" style="display:none;" />
+        <div class="avatar-placeholder" id="avatarPlaceholder"><i class="fa-solid fa-user"></i></div>
       </div>
     </div>
     <div class="live-badge" id="liveBadge">🔴 LIVE</div>
   </div>
 
   <!-- Nom -->
-  <div>
+  <div style="text-align:center;">
     <div class="name">REOXITOF</div>
     <div class="tagline">Streamer • Créateur de contenu</div>
+  </div>
+
+  <!-- Descriptif -->
+  <div style="max-width:420px;text-align:center;padding:0 10px;">
+    <p style="font-size:14px;color:rgba(255,255,255,0.55);line-height:1.8;">
+      Passionné de gaming et de création de contenu, je stream sur Twitch et partage mes meilleures sessions sur YouTube et TikTok. Roleplay GTA, FPS, et bonne ambiance au programme — rejoins la communauté ! 🎮
+    </p>
   </div>
 
   <!-- Liens -->
@@ -280,7 +285,24 @@
     container.appendChild(p);
   }
 
-  // Vérifier si en live
+  // Charger l'avatar Twitch via API
+  async function loadAvatar() {
+    try {
+      const r = await fetch("/twitch/channel-info");
+      const d = await r.json();
+      if (d.profile_image_url || d.broadcaster_login) {
+        // Essaie via notre API serveur
+        const img = document.getElementById("avatarImg");
+        const placeholder = document.getElementById("avatarPlaceholder");
+        const url = d.profile_image_url || `https://static-cdn.jtvnw.net/jtv_user_pictures/${d.broadcaster_login}-profile_image-300x300.png`;
+        img.src = url;
+        img.style.display = "block";
+        placeholder.style.display = "none";
+        img.onerror = () => { img.style.display = "none"; placeholder.style.display = "flex"; };
+      }
+    } catch(e) {}
+  }
+  loadAvatar();
   async function checkLive() {
     try {
       const r = await fetch("https://montage-dashboard.sliplane.app/viewers", { cache: "no-store" });
