@@ -8885,6 +8885,7 @@ body[data-user-role="modo"] .admin-only-action {
 
             <div class="stream-preview-label"><i class="fa-brands fa-twitch"></i> STREAM EN DIRECT &mdash; reoxitof &nbsp;<span id="streamViewerCount" style="background:rgba(155,89,182,.2);border:1px solid rgba(155,89,182,.35);border-radius:999px;padding:2px 10px;font-size:11px;"><i class="fa-solid fa-eye"></i> <span id="streamViewerNum">0</span></span>
               &nbsp;<button id="twitchMuteBtn" onclick="toggleTwitchMute()" style="background:rgba(155,89,182,.2);border:1px solid rgba(155,89,182,.35);border-radius:999px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--white);"><i class="fa-solid fa-volume-xmark"></i> Son</button>
+              &nbsp;<button onclick="initTwitchStreamPlayer(true)" style="background:rgba(155,89,182,.2);border:1px solid rgba(155,89,182,.35);border-radius:999px;padding:2px 10px;font-size:11px;cursor:pointer;color:var(--white);" title="Recharger le player"><i class="fa-solid fa-rotate-right"></i></button>
             </div>
 
 
@@ -10473,13 +10474,7 @@ body[data-user-role="modo"] .admin-only-action {
 
 
       if (name === "stats" && typeof initTwitchChatFrame === "function") initTwitchChatFrame();
-
-
-
-      if (name === "stats") initTwitchStreamPlayer();
-
-
-
+      if (name === "stats" && typeof initTwitchStreamPlayer === "function") initTwitchStreamPlayer();
       if (name === "stats" && typeof refreshAlertFollow === "function") refreshAlertFollow();
 
 
@@ -15671,6 +15666,9 @@ window.addEventListener("DOMContentLoaded", () => {
 
         if (active && active.id === 'tab-stats' && typeof initTwitchChatFrame === 'function') initTwitchChatFrame();
         if (active && active.id === 'tab-stats' && typeof initTwitchStreamPlayer === 'function') initTwitchStreamPlayer();
+        if (active && active.id === 'tab-stats') setTimeout(initTwitchStreamPlayer, 500);
+        // Init player même si pas sur l'onglet stats au chargement
+        setTimeout(initTwitchStreamPlayer, 1500);
 
 
 
@@ -16570,10 +16568,12 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
 
-    function initTwitchStreamPlayer() {
+    function initTwitchStreamPlayer(force) {
       const wrap = document.getElementById("twitchPlayerWrap");
       if (!wrap) return;
-      if (wrap.querySelector("iframe, #twitch-embed-player, .twitch-open-btn")) return;
+      // Si force=true (bouton manuel), on recrée le player
+      if (!force && wrap.querySelector("iframe, #twitch-embed-player, .twitch-open-btn")) return;
+      if (force) wrap.innerHTML = ""; // reset
 
       const channel = "reoxitof";
 
