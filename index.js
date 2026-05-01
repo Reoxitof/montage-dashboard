@@ -2500,6 +2500,37 @@ app.get("/viewers", (req, res) => {
     res.json({ current: state.stats.currentViewers, peak: state.stats.peakViewers });
 });
 
+/* ================= ROUTES — CHATTERS LIST ================= */
+
+app.get("/chatters", async (req, res) => {
+    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) {
+        return res.json({ chatters: [], total: 0, error: "twitch_not_configured" });
+    }
+    try {
+        const headers = getTwitchAuthHeaders();
+        // Récupère jusqu'à 1000 chatters via Helix
+        const response = await fetch(
+            `https://api.twitch.tv/helix/chat/chatters?broadcaster_id=${TWITCH_BROADCASTER_ID}&moderator_id=${TWITCH_BROADCASTER_ID}&first=1000`,
+            { headers }
+        );
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            console.log("[TWITCH API] Erreur chatters:", response.status, err.message);
+            return res.json({ chatters: [], total: 0, error: `twitch_${response.status}` });
+        }
+        const data = await response.json();
+        const chatters = (data.data || []).map(u => ({
+            user_id: u.user_id,
+            user_login: u.user_login,
+            user_name: u.user_name
+        }));
+        res.json({ chatters, total: data.total || chatters.length });
+    } catch (e) {
+        console.log("[TWITCH API] Erreur chatters :", e.message);
+        res.json({ chatters: [], total: 0, error: e.message });
+    }
+});
+
 /* ================= ROUTES — SOUND UPLOAD ================= */
 
 app.post("/sounds/upload", uploadSound.single("sound"), (req, res) => {

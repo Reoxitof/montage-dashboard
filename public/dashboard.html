@@ -6404,7 +6404,65 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
+  cursor:pointer; transition: background .2s, box-shadow .2s;
+
+
+
 }
+
+.obs-god-viewer-badge:hover {
+
+  background:rgba(155,89,182,.3); box-shadow:0 0 16px rgba(155,89,182,.35);
+
+}
+
+/* ── Chatters Popup ── */
+#chattersPopup {
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.6); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;
+}
+#chattersPopup.open { display:flex; }
+#chattersPopupBox {
+  background:#120d1e; border:1px solid rgba(155,89,182,.4);
+  border-radius:18px; padding:24px; width:min(420px,92vw);
+  max-height:80vh; display:flex; flex-direction:column;
+  box-shadow:0 24px 80px rgba(0,0,0,.7), 0 0 60px rgba(155,89,182,.15);
+}
+#chattersPopupBox h3 {
+  margin:0 0 14px; font-size:15px; font-weight:900; letter-spacing:2px;
+  color:#c39bd3; display:flex; align-items:center; gap:8px;
+}
+#chattersPopupBox h3 span { color:white; }
+#chattersSearch {
+  width:100%; padding:9px 12px; border-radius:10px;
+  border:1px solid rgba(155,89,182,.3); background:#08040d;
+  color:white; font-size:13px; margin-bottom:12px; outline:none;
+}
+#chattersSearch:focus { border-color:#9b59b6; }
+#chattersList {
+  overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:4px;
+}
+.chatter-item {
+  display:flex; align-items:center; gap:10px;
+  padding:7px 10px; border-radius:9px;
+  background:rgba(155,89,182,.07); font-size:13px; font-weight:700;
+  color:#e8e0f0; transition:background .15s;
+}
+.chatter-item:hover { background:rgba(155,89,182,.18); }
+.chatter-avatar {
+  width:28px; height:28px; border-radius:50%;
+  background:linear-gradient(135deg,#9b59b6,#7d3c98);
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:900; color:white; flex-shrink:0;
+}
+#chattersEmpty { color:#7f7394; font-size:13px; text-align:center; padding:20px 0; }
+#chattersClose {
+  margin-top:14px; width:100%; padding:10px; border:0; border-radius:10px;
+  background:rgba(155,89,182,.2); color:#c39bd3; font-weight:800;
+  cursor:pointer; font-size:13px; letter-spacing:1px;
+}
+#chattersClose:hover { background:rgba(155,89,182,.35); }
 
 
 
@@ -19849,6 +19907,81 @@ document.addEventListener("DOMContentLoaded", () => {
   style="position:fixed !important;top:50vh !important;left:185px;transform:translateY(-50%);width:20px;height:36px;background:#9b59b6;border:1px solid #7d3c98;border-radius:0 6px 6px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:99999;font-size:10px;color:#fff;transition:left 0.25s ease;box-shadow:2px 0 8px rgba(0,0,0,.6);">
   <i class="fa-solid fa-chevron-left" id="sidebarToggleIcon"></i>
 </button>
+
+<!-- ══ CHATTERS POPUP ══ -->
+<div id="chattersPopup" onclick="if(event.target===this)closeChattersPopup()">
+  <div id="chattersPopupBox">
+    <h3><i class="fa-solid fa-eye"></i> VIEWERS EN DIRECT &nbsp;<span id="chattersCount">—</span></h3>
+    <input id="chattersSearch" type="text" placeholder="Rechercher un viewer..." oninput="filterChatters(this.value)">
+    <div id="chattersList"></div>
+    <div id="chattersEmpty" style="display:none">Aucun viewer trouvé</div>
+    <button id="chattersClose" onclick="closeChattersPopup()"><i class="fa-solid fa-xmark"></i> FERMER</button>
+  </div>
+</div>
+
+<script>
+/* ══ CHATTERS POPUP LOGIC ══ */
+let _allChatters = [];
+
+function openChattersPopup() {
+  document.getElementById("chattersPopup").classList.add("open");
+  document.getElementById("chattersSearch").value = "";
+  loadChatters();
+}
+
+function closeChattersPopup() {
+  document.getElementById("chattersPopup").classList.remove("open");
+}
+
+async function loadChatters() {
+  const list = document.getElementById("chattersList");
+  const empty = document.getElementById("chattersEmpty");
+  const count = document.getElementById("chattersCount");
+  list.innerHTML = '<div style="color:#7f7394;font-size:13px;text-align:center;padding:20px 0"><i class="fa-solid fa-spinner fa-spin"></i> Chargement...</div>';
+  empty.style.display = "none";
+  try {
+    const res = await fetch("/chatters", { cache: "no-store" });
+    const data = await res.json();
+    _allChatters = data.chatters || [];
+    count.textContent = data.total || _allChatters.length;
+    renderChatters(_allChatters);
+  } catch(e) {
+    list.innerHTML = '<div style="color:#ff6b6b;font-size:13px;text-align:center;padding:20px 0">Erreur de chargement</div>';
+  }
+}
+
+function renderChatters(chatters) {
+  const list = document.getElementById("chattersList");
+  const empty = document.getElementById("chattersEmpty");
+  if (!chatters.length) {
+    list.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+  list.innerHTML = chatters.map(c => {
+    const name = c.user_name || c.user_login || "?";
+    const initial = name.charAt(0).toUpperCase();
+    return `<div class="chatter-item">
+      <div class="chatter-avatar">${initial}</div>
+      <span>${name}</span>
+    </div>`;
+  }).join("");
+}
+
+function filterChatters(q) {
+  const filtered = q.trim()
+    ? _allChatters.filter(c => (c.user_name||c.user_login||"").toLowerCase().includes(q.toLowerCase()))
+    : _allChatters;
+  renderChatters(filtered);
+}
+
+// Attacher le clic sur le badge viewer
+document.addEventListener("DOMContentLoaded", function() {
+  const badge = document.getElementById("obsGodViewerCount");
+  if (badge) badge.addEventListener("click", openChattersPopup);
+});
+</script>
 </body>
 
 
