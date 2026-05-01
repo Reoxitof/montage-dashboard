@@ -839,7 +839,7 @@ app.get("/obs/full/audio-sources", obsControlAdminOnly, async (req, res) => {
         const data = await callObsBridge("/audio-sources", {}, "GET");
         res.json(data);
     } catch (e) {
-        res.status(503).json({ success: false, error: e.message, sources: [] });
+        res.json({ success: false, error: e.message, sources: [] });
     }
 });
 
@@ -848,7 +848,7 @@ app.get("/obs/full/audio-levels", obsControlAdminOnly, async (req, res) => {
         const data = await callObsBridge("/audio-levels", {}, "GET");
         res.json(data);
     } catch (e) {
-        res.status(503).json({ success: false, error: e.message, levels: {} });
+        res.json({ success: false, error: e.message, levels: {} });
     }
 });
 
@@ -857,7 +857,7 @@ app.get("/obs/full/scenes", obsControlAdminOnly, async (req, res) => {
         const data = await callObsBridge("/scenes", {}, "GET");
         res.json(data);
     } catch (e) {
-        res.status(503).json({ success: false, error: e.message, scenes: [] });
+        res.json({ success: false, error: e.message, scenes: [] });
     }
 });
 
