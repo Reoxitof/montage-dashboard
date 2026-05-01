@@ -1184,6 +1184,11 @@ function validatePhpDashboardToken(token) {
 }
 
 function requirePhpApiAuth(req, res, next) {
+    // Si la session locale est valide, on accepte directement (pas besoin du token PHP)
+    if (req.session?.user) {
+        req.dashboardUser = req.session.user;
+        return next();
+    }
     const token = req.headers["x-dashboard-token"] || req.query.dashboardToken;
     const user = validatePhpDashboardToken(token);
 
