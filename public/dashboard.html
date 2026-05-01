@@ -12284,25 +12284,31 @@ body[data-user-role="modo"] .admin-only-action {
 
 
     async function showScreen(type) {
-
-
-
       try {
-
-
-
         await fetch("/screen/" + type, { cache: "no-store" });
-
-
-
         addLog("Écran : " + type.toUpperCase()); showToast("Écran " + type.toUpperCase() + " affiché");
-
-
-
+        if (type === "pause") {
+          const mins = parseInt(document.getElementById("brbDuration")?.value || "10", 10) || 10;
+          await fetch("/brb/on?message=BRB+—+Retour+dans+" + mins + "+min", { cache: "no-store" });
+          const el = document.getElementById("brbStatus"); if (el) { el.textContent = "ACTIF"; el.classList.add("active"); }
+          const timerEl = document.getElementById("brbTimerDisplay"); if (timerEl) timerEl.style.display = "block";
+          let secs = mins * 60;
+          clearInterval(window._brbInterval);
+          function tick() {
+            if (!timerEl) return;
+            const m = Math.floor(secs/60).toString().padStart(2,"0");
+            const s = (secs%60).toString().padStart(2,"0");
+            timerEl.textContent = m+":"+s;
+            if (secs <= 0) { clearInterval(window._brbInterval); hideScreen(); return; }
+            secs--;
+          }
+          tick(); window._brbInterval = setInterval(tick, 1000);
+        }
+        if (type === "fin") {
+          clearTimeout(window._finTimeout);
+          window._finTimeout = setTimeout(() => hideScreen(), 10000);
+        }
       } catch (e) { showToast("Erreur"); }
-
-
-
     }
 
 
@@ -12312,25 +12318,14 @@ body[data-user-role="modo"] .admin-only-action {
 
 
     async function hideScreen() {
-
-
-
       try {
-
-
-
         await fetch("/screen/hide", { cache: "no-store" });
-
-
-
+        clearInterval(window._brbInterval); clearTimeout(window._finTimeout);
+        await fetch("/brb/off", { cache: "no-store" }).catch(() => {});
+        const el = document.getElementById("brbStatus"); if (el) { el.textContent = "OFF"; el.classList.remove("active"); }
+        const timerEl = document.getElementById("brbTimerDisplay"); if (timerEl) timerEl.style.display = "none";
         addLog("Écran masqué"); showToast("Écran masqué");
-
-
-
       } catch (e) { showToast("Erreur"); }
-
-
-
     }
 
 
