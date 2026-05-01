@@ -6513,7 +6513,7 @@ body[data-user-role="modo"] .admin-only-action {
     /* Bouton toggle sidebar */
     .sidebar-toggle {
       position: fixed;
-      top: 50%;
+      top: 50vh;
       left: 185px;
       transform: translateY(-50%);
       width: 20px; height: 36px;
@@ -6529,8 +6529,8 @@ body[data-user-role="modo"] .admin-only-action {
       box-shadow: 2px 0 8px rgba(0,0,0,.4);
     }
     .sidebar-toggle:hover { background: var(--violet-bright); }
-    .sidebar.collapsed ~ * .sidebar-toggle,
     #dashSidebar.collapsed .sidebar-toggle { left: 42px; }
+    #dashSidebar.collapsed .sidebar-toggle i { transform: rotate(180deg); }
 
     /* Sidebar rétractée */
     .sidebar.collapsed {
@@ -6569,9 +6569,6 @@ body[data-user-role="modo"] .admin-only-action {
     }
     .sidebar.collapsed .sidebar-logo-icon {
       font-size: 18px;
-    }
-    .sidebar.collapsed .sidebar-toggle i {
-      transform: rotate(180deg);
     }
     .sidebar-logo {
       display: flex;
