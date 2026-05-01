@@ -2849,8 +2849,11 @@ async function getTwitchAppToken() {
 }
 
 function getTwitchAuthHeaders() {
+    // Utilise l'App Token si disponible, sinon le user token
+    const appToken = config.twitchApi?.appToken;
     const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
-    return { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}` };
+    const token = appToken || oauth;
+    return { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${token}` };
 }
 
 /* ================= TWITCH API — CHANNEL INFO ================= */

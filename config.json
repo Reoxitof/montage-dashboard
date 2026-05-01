@@ -23,7 +23,9 @@
   "twitchApi": {
     "clientId": "hct8emjogyhew0chqsfi9rb6vdwt3h",
     "oauthToken": "oauth:udbo6huq2xy8xwxxqvw4yv6b5g3r78",
-    "broadcasterId": "47064304"
+    "broadcasterId": "47064304",
+    "clientSecret": "5le3jzi3spzlijmfbldmdwb8d4zqhr",
+    "appToken": "3d9gup04ollvbbpuzem1hu8iy1n2dj"
   },
   "localAuth": {
     "enabled": true,
