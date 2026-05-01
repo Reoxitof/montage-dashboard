@@ -28,8 +28,13 @@
     // Défini tôt pour être accessible dès le chargement du HTML
     function toggleSidebar() {
       const sidebar = document.getElementById("dashSidebar");
+      const btn = document.getElementById("sidebarToggleBtn");
       if (!sidebar) return;
       const collapsed = sidebar.classList.toggle("collapsed");
+      if (btn) {
+        btn.style.left = collapsed ? "42px" : "185px";
+        btn.querySelector("i").style.transform = collapsed ? "rotate(180deg)" : "";
+      }
       try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
     }
     // Restaurer état sidebar immédiatement
@@ -37,7 +42,12 @@
       if (localStorage.getItem("sidebarCollapsed") === "1") {
         document.addEventListener("DOMContentLoaded", function() {
           const sidebar = document.getElementById("dashSidebar");
+          const btn = document.getElementById("sidebarToggleBtn");
           if (sidebar) sidebar.classList.add("collapsed");
+          if (btn) {
+            btn.style.left = "42px";
+            btn.querySelector("i").style.transform = "rotate(180deg)";
+          }
         });
       }
     } catch(e) {}
@@ -6531,7 +6541,6 @@ body[data-user-role="modo"] .admin-only-action {
     .sidebar-toggle:hover { background: var(--violet-bright); }
     #dashSidebar.collapsed .sidebar-toggle { left: 42px; }
     #dashSidebar.collapsed .sidebar-toggle i { transform: rotate(180deg); }
-
     /* Sidebar rétractée */
     .sidebar.collapsed {
       width: 42px;
@@ -6981,7 +6990,8 @@ body[data-user-role="modo"] .admin-only-action {
 
 
     <nav class="sidebar" id="dashSidebar">
-      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Rétracter le menu"><i class="fa-solid fa-chevron-left"></i></button>
+      <!-- Bouton toggle en position fixe -->
+      <button id="sidebarToggleBtn" class="sidebar-toggle" onclick="toggleSidebar()" title="Rétracter le menu"><i class="fa-solid fa-chevron-left"></i></button>
       <div class="sidebar-logo">
         <span class="sidebar-logo-icon">🎮</span>
         <div>
