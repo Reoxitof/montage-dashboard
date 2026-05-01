@@ -330,6 +330,7 @@ async function loadSavedProfile() {
                 console.log("[PROFILE] Profil restauré :", profileId);
             }
         }
+    } catch(e) {
 
 
 
@@ -340,7 +341,6 @@ async function loadSavedProfile() {
 
 
 
-        console.log("[PROFILE] Erreur chargement profil :", e.message);
     }
 }
 loadSavedProfile();
