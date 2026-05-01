@@ -2251,28 +2251,40 @@ app.get("/brb/state", (req, res) => {
 
 /* ================= ROUTES — CLIP TWITCH ================= */
 
-app.post("/clip/create", obsControlAdminOnly, async (req, res) => {
+app.post("/clip/create", requireAdmin, async (req, res) => {
     try {
         const cfg = config.twitchApi || {};
         const clientId = cfg.clientId;
-        const token = (cfg.oauthToken || "").replace(/^oauth:/, "");
+        // Essaie d'abord appToken (App Access Token), puis oauthToken (User Token)
+        const token = (cfg.appToken || cfg.oauthToken || "").replace(/^oauth:/, "");
         const broadcasterId = cfg.broadcasterId;
-        if (!clientId || !token || !broadcasterId) return res.json({ success: false, error: "Twitch API non configurée" });
+        if (!clientId || !token || !broadcasterId) {
+            return res.json({ success: false, error: "Twitch API non configurée (clientId, token ou broadcasterId manquant)" });
+        }
 
         const r = await fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${broadcasterId}`, {
             method: "POST",
-            headers: { "Client-ID": clientId, "Authorization": `Bearer ${token}` }
+            headers: {
+                "Client-ID": clientId,
+                "Authorization": `Bearer ${token}`
+            }
         });
+
         const data = await r.json();
+        console.log("[CLIP] Réponse Twitch:", JSON.stringify(data).slice(0, 300));
+
         if (data.data && data.data[0]) {
             const clipId = data.data[0].id;
             const editUrl = data.data[0].edit_url;
             console.log("[CLIP] Créé :", clipId);
             res.json({ success: true, clipId, editUrl, url: `https://clips.twitch.tv/${clipId}` });
         } else {
-            res.json({ success: false, error: data.message || "Erreur Twitch" });
+            const errMsg = data.message || data.error || "Erreur Twitch inconnue";
+            console.log("[CLIP] Erreur:", errMsg, "status:", data.status);
+            res.json({ success: false, error: errMsg, twitchStatus: data.status });
         }
     } catch (e) {
+        console.log("[CLIP] Exception:", e.message);
         res.json({ success: false, error: e.message });
     }
 });
