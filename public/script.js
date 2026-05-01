@@ -84,6 +84,8 @@ function applyTheme(theme) {
     root.style.setProperty("--glass-border", `rgba(${r},${g},${b},0.3)`);
     root.style.setProperty("--glow-violet", `0 0 20px rgba(${r},${g},${b},0.2),0 0 60px rgba(${r},${g},${b},0.06)`);
     root.style.setProperty("--neon-box", `0 0 6px rgba(${r},${g},${b},0.6),0 0 14px rgba(${r},${g},${b},0.4),0 0 30px rgba(${r},${g},${b},0.2),0 0 50px rgba(${r},${g},${b},0.1)`);
+    // Injecter un style dynamique pour écraser les couleurs hardcodées
+    _injectThemeOverride(r, g, b);
   }
   if (theme.primaryDim) {
     root.style.setProperty("--gta-violet-dim", theme.primaryDim);
@@ -100,6 +102,53 @@ function applyTheme(theme) {
   if (theme.accent) {
     root.style.setProperty("--nui-accent", theme.accent);
   }
+}
+
+function _injectThemeOverride(r, g, b) {
+  let el = document.getElementById("_themeOverride");
+  if (!el) {
+    el = document.createElement("style");
+    el.id = "_themeOverride";
+    document.head.appendChild(el);
+  }
+  // Remplacer toutes les couleurs violet hardcodées par la nouvelle couleur
+  el.textContent = `
+    :root {
+      --glass-border: rgba(${r},${g},${b},0.3) !important;
+      --glow-violet: 0 0 20px rgba(${r},${g},${b},0.2),0 0 60px rgba(${r},${g},${b},0.06) !important;
+      --neon-box: 0 0 6px rgba(${r},${g},${b},0.6),0 0 14px rgba(${r},${g},${b},0.4),0 0 30px rgba(${r},${g},${b},0.2),0 0 50px rgba(${r},${g},${b},0.1) !important;
+      --gta-violet: rgb(${r},${g},${b}) !important;
+      --gta-violet-dim: var(--nui-violet-dim) !important;
+      --gta-violet-bright: var(--nui-violet-bright) !important;
+      --gta-violet-glow: var(--nui-violet-glow) !important;
+    }
+    .sub-goal, .hud-banner, .twitch-alert .alert-content, .vote-panel-inner, .poll-inner, .highlight-inner {
+      border-color: rgba(${r},${g},${b},0.3) !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(${r},${g},${b},0.2), 0 0 6px rgba(${r},${g},${b},0.6), 0 0 14px rgba(${r},${g},${b},0.4), 0 0 30px rgba(${r},${g},${b},0.2) !important;
+    }
+    .alert-icon-box {
+      background: linear-gradient(145deg, rgb(${r},${g},${b}), rgba(${r},${g},${b},0.7)) !important;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.4), 0 0 6px rgba(${r},${g},${b},0.6), 0 0 14px rgba(${r},${g},${b},0.4) !important;
+    }
+    .sub-goal-fill, .vote-fill-jail {
+      background: linear-gradient(90deg, rgba(${r},${g},${b},0.7), rgb(${r},${g},${b}), var(--nui-violet-bright)) !important;
+      box-shadow: 0 0 12px rgba(${r},${g},${b},0.5) !important;
+    }
+    .live-dot {
+      background: var(--nui-violet-bright) !important;
+      box-shadow: 0 0 6px var(--nui-violet-bright), 0 0 18px rgba(${r},${g},${b},0.35) !important;
+    }
+    .hud-pill {
+      color: var(--nui-violet-bright) !important;
+      background: rgba(${r},${g},${b},0.15) !important;
+      border-color: rgba(${r},${g},${b},0.25) !important;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3), 0 0 8px rgba(${r},${g},${b},0.3) !important;
+    }
+    .vote-header-icon, .poll-header-icon, .highlight-icon {
+      background: linear-gradient(135deg, rgb(${r},${g},${b}), rgba(${r},${g},${b},0.7)) !important;
+      box-shadow: 0 4px 16px rgba(${r},${g},${b},0.35) !important;
+    }
+  `;
 }
 
 /* ================= OVERLAY PROFILE ================= */
