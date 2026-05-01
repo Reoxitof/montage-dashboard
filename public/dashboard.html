@@ -10124,11 +10124,11 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-          <button class="obs-god-btn obs-god-btn-rec" style="flex:1" onclick="brbStart()"><i class="fa-solid fa-pause"></i> BRB ON</button>
+          <button class="obs-god-btn obs-god-btn-rec" style="flex:1" onclick="toggleBRB(true)"><i class="fa-solid fa-pause"></i> BRB ON</button>
 
 
 
-          <button class="obs-god-btn obs-god-btn-ghost" style="flex:1" onclick="brbStop()"><i class="fa-solid fa-play"></i> RETOUR</button>
+          <button class="obs-god-btn obs-god-btn-ghost" style="flex:1" onclick="toggleBRB(false)"><i class="fa-solid fa-play"></i> RETOUR</button>
 
 
 
@@ -12261,7 +12261,8 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-      const msg = document.getElementById("brbMessage").value;
+      const msg = document.getElementById("brbMessage")?.value || "STREAM EN PAUSE — ON REVIENT !";
+      const mins = parseInt(document.getElementById("brbDuration")?.value || "10", 10) || 10;
 
 
 
@@ -12269,25 +12270,24 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-        if (on) await fetch("/brb/on?message=" + encodeURIComponent(msg), { cache: "no-store" });
-
-
-
-        else await fetch("/brb/off", { cache: "no-store" });
-
-
-
-        addLog(on ? "BRB activé" : "BRB désactivé"); showToast(on ? "Mode BRB activé" : "BRB désactivé");
-
-
-
-      } catch (e) { showToast("Erreur"); }
-
-
-
+        if (on) {
+          await fetch("/brb/on?message=" + encodeURIComponent(msg + " — Retour dans " + mins + " min"), { cache: "no-store", credentials: "include" });
+          await fetch("/screen/pause", { cache: "no-store", credentials: "include" });
+          const el = document.getElementById("brbStatus"); if (el) { el.textContent = "ACTIF"; el.classList.add("active"); }
+          const timerEl = document.getElementById("brbTimerDisplay"); if (timerEl) timerEl.style.display = "block";
+          let secs = mins * 60; clearInterval(window._brbInterval);
+          function tick() { if (!timerEl) return; const m = Math.floor(secs/60).toString().padStart(2,"0"); const s = (secs%60).toString().padStart(2,"0"); timerEl.textContent = m+":"+s; if (secs <= 0) { clearInterval(window._brbInterval); toggleBRB(false); return; } secs--; }
+          tick(); window._brbInterval = setInterval(tick, 1000);
+        } else {
+          await fetch("/brb/off", { cache: "no-store", credentials: "include" });
+          await fetch("/screen/hide", { cache: "no-store", credentials: "include" });
+          clearInterval(window._brbInterval);
+          const el = document.getElementById("brbStatus"); if (el) { el.textContent = "OFF"; el.classList.remove("active"); }
+          const timerEl = document.getElementById("brbTimerDisplay"); if (timerEl) timerEl.style.display = "none";
+        }
+        addLog(on ? "BRB activé" : "BRB désactivé"); showToast(on ? "Mode BRB activé ⏸" : "BRB désactivé ▶");
+      } catch (e) { showToast("Erreur BRB"); }
     }
-
-
 
 
 
