@@ -9908,154 +9908,24 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-      <!-- Lancement local -->
-
-
+      <!-- Écran Stream -->
 
       <div class="obs-god-card">
-
-
-
         <div class="obs-god-card-head">
-
-
-
           <div>
-
-
-
-            <div class="obs-god-label">LANCEMENT LOCAL</div>
-
-
-
-            <div class="obs-god-small">Bridge OBS + ngrok</div>
-
-
-
+            <div class="obs-god-label">ÉCRAN STREAM</div>
+            <div class="obs-god-small">Start / Pause / Fin</div>
           </div>
-
-
-
-          <i class="fa-solid fa-rocket"></i>
-
-
-
+          <i class="fa-solid fa-display" style="font-size:22px;color:var(--violet-bright);opacity:.5;"></i>
         </div>
-
-
-
-        <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
-
-
-
-          <!-- Bridge -->
-
-
-
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-
-
-
-            <div>
-
-
-
-              <div style="font-size:12px;font-weight:900;color:white;">OBS Bridge</div>
-
-
-
-              <div class="obs-proc-status" id="bridgeStatus">—</div>
-
-
-
-            </div>
-
-
-
-            <div style="display:flex;gap:6px;">
-
-
-
-              <button class="obs-god-btn obs-god-btn-rec" style="padding:8px 12px;font-size:11px;" onclick="procStart('bridge')"><i class="fa-solid fa-play"></i></button>
-
-
-
-              <button class="obs-god-btn obs-god-btn-ghost" style="padding:8px 12px;font-size:11px;" onclick="procStop('bridge')"><i class="fa-solid fa-stop"></i></button>
-
-
-
-            </div>
-
-
-
-          </div>
-
-
-
-          <!-- ngrok -->
-
-
-
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-
-
-
-            <div>
-
-
-
-              <div style="font-size:12px;font-weight:900;color:white;">ngrok</div>
-
-
-
-              <div class="obs-proc-status" id="ngrokStatus">—</div>
-
-
-
-            </div>
-
-
-
-            <div style="display:flex;gap:6px;">
-
-
-
-              <button class="obs-god-btn obs-god-btn-rec" style="padding:8px 12px;font-size:11px;" onclick="procStart('ngrok')"><i class="fa-solid fa-play"></i></button>
-
-
-
-              <button class="obs-god-btn obs-god-btn-ghost" style="padding:8px 12px;font-size:11px;" onclick="procStop('ngrok')"><i class="fa-solid fa-stop"></i></button>
-
-
-
-            </div>
-
-
-
-          </div>
-
-
-
-          <!-- Tout lancer -->
-
-
-
-          <button class="obs-god-btn obs-god-btn-live" style="width:100%;margin-top:4px;" onclick="procStartAll()">
-
-
-
-            <i class="fa-solid fa-rocket"></i> TOUT LANCER
-
-
-
-          </button>
-
-
-
+        <p style="font-size:12px;color:var(--white-dim);margin-bottom:14px;">Affiche une image plein écran sur l'overlay.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="obs-god-btn obs-god-btn-green" style="flex:1" onclick="showScreen('start')"><i class="fa-solid fa-play"></i> START</button>
+          <button class="obs-god-btn obs-god-btn-rec" style="flex:1;background:linear-gradient(135deg,#d97706,#f59e0b);" onclick="showScreen('pause')"><i class="fa-solid fa-pause"></i> PAUSE</button>
+          <button class="obs-god-btn obs-god-btn-danger" style="flex:1" onclick="showScreen('fin')"><i class="fa-solid fa-stop"></i> FIN</button>
+          <button class="obs-god-btn obs-god-btn-ghost" style="flex:1" onclick="hideScreen()"><i class="fa-solid fa-eye-slash"></i> MASQUER</button>
         </div>
-
-
-
+      </div>
       </div>
 
 
