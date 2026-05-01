@@ -29,12 +29,11 @@
     function toggleSidebar() {
       const sidebar = document.getElementById("dashSidebar");
       const btn = document.getElementById("sidebarToggleBtn");
+      const icon = document.getElementById("sidebarToggleIcon");
       if (!sidebar) return;
       const collapsed = sidebar.classList.toggle("collapsed");
-      if (btn) {
-        btn.style.left = collapsed ? "42px" : "185px";
-        btn.querySelector("i").style.transform = collapsed ? "rotate(180deg)" : "";
-      }
+      if (btn) btn.style.left = collapsed ? "42px" : "185px";
+      if (icon) icon.style.transform = collapsed ? "rotate(180deg)" : "";
       try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
     }
     // Restaurer état sidebar immédiatement
@@ -43,11 +42,10 @@
         document.addEventListener("DOMContentLoaded", function() {
           const sidebar = document.getElementById("dashSidebar");
           const btn = document.getElementById("sidebarToggleBtn");
+          const icon = document.getElementById("sidebarToggleIcon");
           if (sidebar) sidebar.classList.add("collapsed");
-          if (btn) {
-            btn.style.left = "42px";
-            btn.querySelector("i").style.transform = "rotate(180deg)";
-          }
+          if (btn) btn.style.left = "42px";
+          if (icon) icon.style.transform = "rotate(180deg)";
         });
       }
     } catch(e) {}
@@ -6540,8 +6538,7 @@ body[data-user-role="modo"] .admin-only-action {
     }
     .sidebar-toggle:hover { background: var(--violet-bright); }
     #dashSidebar.collapsed .sidebar-toggle { left: 42px; }
-    #dashSidebar.collapsed .sidebar-toggle i { transform: rotate(180deg); }
-    /* Sidebar rétractée */
+    #dashSidebar.collapsed .sidebar-toggle i { transform: rotate(180deg); }    /* Sidebar rétractée */
     .sidebar.collapsed {
       width: 42px;
       min-width: 42px;
@@ -6990,8 +6987,6 @@ body[data-user-role="modo"] .admin-only-action {
 
 
     <nav class="sidebar" id="dashSidebar">
-      <!-- Bouton toggle en position fixe -->
-      <button id="sidebarToggleBtn" class="sidebar-toggle" onclick="toggleSidebar()" title="Rétracter le menu"><i class="fa-solid fa-chevron-left"></i></button>
       <div class="sidebar-logo">
         <span class="sidebar-logo-icon">🎮</span>
         <div>
@@ -20038,7 +20033,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return origSwitch(name, btn);
   };
 });
-</script></body>
+</script>
+<!-- Bouton toggle sidebar — en dehors de tout contexte de positionnement -->
+<button id="sidebarToggleBtn" onclick="toggleSidebar()" title="Rétracter le menu"
+  style="position:fixed;top:50vh;left:185px;transform:translateY(-50%);width:20px;height:36px;background:var(--violet);border:1px solid rgba(155,89,182,.5);border-radius:0 6px 6px 0;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:9999;font-size:10px;color:#fff;transition:left 0.25s ease;box-shadow:2px 0 8px rgba(0,0,0,.4);">
+  <i class="fa-solid fa-chevron-left" id="sidebarToggleIcon"></i>
+</button>
+</body>
 
 
 
