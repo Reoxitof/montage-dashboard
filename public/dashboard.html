@@ -24,6 +24,24 @@
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script src="https://player.twitch.tv/js/embed/v1.js"></script>
+  <script>
+    // Défini tôt pour être accessible dès le chargement du HTML
+    function toggleSidebar() {
+      const sidebar = document.getElementById("dashSidebar");
+      if (!sidebar) return;
+      const collapsed = sidebar.classList.toggle("collapsed");
+      try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
+    }
+    // Restaurer état sidebar immédiatement
+    try {
+      if (localStorage.getItem("sidebarCollapsed") === "1") {
+        document.addEventListener("DOMContentLoaded", function() {
+          const sidebar = document.getElementById("dashSidebar");
+          if (sidebar) sidebar.classList.add("collapsed");
+        });
+      }
+    } catch(e) {}
+  </script>
 
 
 
