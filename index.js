@@ -496,7 +496,8 @@ app.post("/auth/register", async (req, res) => {
         };
         await dbCreateUser(user);
         req.session.user = sanitizeUser(user);
-        res.redirect("/dashboard.html");
+        const returnTo = req.body.returnTo || req.query.returnTo || "/dashboard.html";
+        res.redirect(returnTo.startsWith("/") ? returnTo : "/dashboard.html");
     } catch (e) {
         console.log("[AUTH] Register error :", e.message);
         res.redirect("/register.html?error=server_error");

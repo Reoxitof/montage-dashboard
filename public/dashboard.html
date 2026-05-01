@@ -10392,8 +10392,8 @@ body[data-user-role="modo"] .admin-only-action {
 
 
     function switchTab(name, btn = null) {
-
-
+      // Sauvegarder l'onglet actif dans localStorage
+      try { localStorage.setItem("lastTab", name); } catch(e) {}
 
       if (DASH_MOD_ONLY && !["moderation", "vote", "stats", "alerts"].includes(name)) name = "stats";
 
@@ -19794,9 +19794,11 @@ function _scrollTop() {
     _orig(name, btn);
     setTimeout(_scrollTop, 10);
   };
-  setTimeout(function() { window.switchTab("alerts"); }, 300);
-  setTimeout(function() { window.switchTab("alerts"); }, 900);
-  setTimeout(function() { window.switchTab("alerts"); }, 1600);
+  // Restaurer le dernier onglet visité
+  const _lastTab = (function() { try { return localStorage.getItem("lastTab") || "alerts"; } catch(e) { return "alerts"; } })();
+  setTimeout(function() { window.switchTab(_lastTab); }, 300);
+  setTimeout(function() { window.switchTab(_lastTab); }, 900);
+  setTimeout(function() { window.switchTab(_lastTab); }, 1600);
 })();</script>
 
 <script>
