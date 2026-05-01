@@ -11988,9 +11988,9 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-        await fetch("/theme", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(theme) });
+        const r = await fetch("/theme", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify(theme) });
 
-
+        if (!r.ok) { const e = await r.json(); showToast("Erreur: " + (e.error||r.status)); return; }
 
         addLog("Thème appliqué"); showToast("Thème mis à jour");
 
