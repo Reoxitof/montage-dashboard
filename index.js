@@ -824,8 +824,14 @@ app.get("/obs/full/status", obsControlAdminOnly, async (req, res) => {
         });
         res.json({ success: true, bridge: true, ...data });
     } catch (e) {
-        res.status(503).json({ success: false, bridge: false, error: e.message });
+        // Retourne 200 avec success:false au lieu de 503 pour éviter le spam d'erreurs
+        res.json({ success: false, bridge: false, error: e.message });
     }
+});
+
+// Route manquante — évite les 404 en boucle
+app.get("/process/status", requireDashboardAuth, (req, res) => {
+    res.json({ isRemote: true, platform: "sliplane", status: "running" });
 });
 
 app.get("/obs/full/audio-sources", obsControlAdminOnly, async (req, res) => {
