@@ -6500,122 +6500,6 @@ body[data-user-role="modo"] .admin-only-action {
     body { height: auto; overflow: auto; display: flex; flex-direction: column; }
 
     .auth-user-bar { flex-shrink: 0; z-index: 100; }
-
-    .sidebar {
-      width: 185px;
-      min-width: 185px;
-      flex-shrink: 0;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      padding: 12px 8px;
-      gap: 1px;
-      overflow-y: auto;
-      overflow-x: hidden;
-      height: 100%;
-      transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
-      position: relative;
-    }
-
-    /* Bouton toggle sidebar */
-    .sidebar-toggle {
-      position: fixed;
-      top: 50vh;
-      left: 185px;
-      transform: translateY(-50%);
-      width: 20px; height: 36px;
-      background: var(--violet);
-      border: 1px solid rgba(155,89,182,.5);
-      border-radius: 0 6px 6px 0;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      z-index: 500;
-      font-size: 10px;
-      color: #fff;
-      transition: left 0.25s ease, background 0.15s;
-      box-shadow: 2px 0 8px rgba(0,0,0,.4);
-    }
-    .sidebar-toggle:hover { background: var(--violet-bright); }
-    #dashSidebar.collapsed .sidebar-toggle { left: 42px; }
-    #dashSidebar.collapsed .sidebar-toggle i { transform: rotate(180deg); }    /* Sidebar rétractée */
-    .sidebar.collapsed {
-      width: 42px;
-      min-width: 42px;
-      padding: 12px 0;
-    }
-    .sidebar.collapsed .sidebar-logo-title,
-    .sidebar.collapsed .sidebar-logo-sub,
-    .sidebar.collapsed .sidebar-section-label,
-    .sidebar.collapsed .badge-modo,
-    .sidebar.collapsed .badge-admin {
-      display: none !important;
-    }
-    /* Cacher le texte des tabs mais garder l'icône */
-    .sidebar.collapsed .tab {
-      justify-content: flex-start;
-      padding: 10px 10px;
-      gap: 0;
-      font-size: 0 !important;
-      color: transparent;
-      width: 42px !important;
-      min-width: unset !important;
-    }
-    .sidebar.collapsed .tab i {
-      font-size: 16px !important;
-      color: var(--white-dim);
-      width: auto;
-    }
-    .sidebar.collapsed .tab.active i {
-      color: #fff;
-    }
-    .sidebar.collapsed .sidebar-logo {
-      justify-content: center;
-      padding: 6px 0 14px;
-    }
-    .sidebar.collapsed .sidebar-logo-icon {
-      font-size: 18px;
-    }
-    .sidebar-logo {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 8px 14px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 6px;
-      flex-shrink: 0;
-    }
-    .sidebar-logo-icon { font-size: 20px; }
-    .sidebar-logo-title { font-size: 12px; font-weight: 900; letter-spacing: 2px; color: var(--white); }
-    .sidebar-logo-sub { font-size: 9px; color: var(--white-dim); }
-
-    .sidebar-section-label {
-      font-size: 9px;
-      font-weight: 800;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--white-dim);
-      padding: 8px 8px 3px;
-      opacity: 0.45;
-      flex-shrink: 0;
-    }
-
-    .sidebar .tab {
-      width: 100%;
-      text-align: left;
-      padding: 8px 10px;
-      border-radius: 7px;
-      font-size: 11.5px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      white-space: nowrap;
-      overflow: hidden;
-      flex-shrink: 0;
-    }
-    .sidebar .tab i { width: 14px; text-align: center; flex-shrink: 0; font-size: 12px; }
-    .sidebar .tab .badge-modo,
     .sidebar .tab .badge-admin { margin-left: auto; flex-shrink: 0; font-size: 8px; padding: 2px 5px; }
 
     .main-content {
@@ -6669,22 +6553,6 @@ body[data-user-role="modo"] .admin-only-action {
       gap: 0 !important;
       overflow: hidden !important;
     }
-
-    .sidebar {
-      width: 180px !important;
-      min-width: 180px !important;
-      max-width: 180px !important;
-      flex-shrink: 0 !important;
-      height: 100% !important;
-      overflow-y: auto !important;
-      overflow-x: hidden !important;
-      background: var(--surface) !important;
-      border-right: 1px solid var(--border) !important;
-      padding: 10px 8px !important;
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 1px !important;
-      z-index: 10 !important;
     }
 
     .sidebar-logo { display: none !important; }
@@ -6767,10 +6635,75 @@ body[data-user-role="modo"] .admin-only-action {
       flex-direction: column;
       padding: 10px 8px;
       gap: 1px;
-      position: sticky;
+      position: relative;
       top: 0;
       max-height: 100vh;
       overflow-y: auto;
+      overflow-x: visible;
+      transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
+    }
+
+    /* ══ BOUTON TOGGLE SIDEBAR ══ */
+    .sidebar-toggle {
+      position: absolute;
+      top: 50%;
+      right: -16px;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 36px;
+      background: var(--violet);
+      border: 1px solid rgba(155,89,182,.5);
+      border-left: none;
+      border-radius: 0 6px 6px 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 500;
+      font-size: 9px;
+      color: #fff;
+      transition: background 0.15s;
+      box-shadow: 2px 0 8px rgba(0,0,0,.4);
+      padding: 0;
+    }
+    .sidebar-toggle:hover { background: var(--violet-bright); }
+    #sidebarToggleIcon { transition: transform 0.25s ease; }
+
+    /* ══ SIDEBAR RÉTRACTÉE ══ */
+    .sidebar.collapsed {
+      width: 42px !important;
+      min-width: 42px !important;
+      padding: 10px 0 !important;
+    }
+    .sidebar.collapsed .sidebar-logo-title,
+    .sidebar.collapsed .sidebar-logo-sub,
+    .sidebar.collapsed .sidebar-section-label,
+    .sidebar.collapsed .badge-modo,
+    .sidebar.collapsed .badge-admin {
+      display: none !important;
+    }
+    .sidebar.collapsed .tab {
+      justify-content: center !important;
+      padding: 10px 0 !important;
+      gap: 0 !important;
+      font-size: 0 !important;
+      color: transparent !important;
+      width: 42px !important;
+    }
+    .sidebar.collapsed .tab i {
+      font-size: 16px !important;
+      color: var(--white-dim) !important;
+      width: auto !important;
+    }
+    .sidebar.collapsed .tab.active i {
+      color: #fff !important;
+    }
+    .sidebar.collapsed .sidebar-logo {
+      justify-content: center !important;
+      padding: 6px 0 14px !important;
+    }
+    .sidebar.collapsed #sidebarToggleIcon {
+      transform: rotate(180deg) !important;
     }
 
     .sidebar-logo { display: none !important; }
@@ -19889,15 +19822,23 @@ function _scrollTop() {
   // Toggle sidebar
   window.toggleSidebar = function() {
     const sidebar = document.getElementById("dashSidebar");
+    const btn = document.getElementById("sidebarToggleBtn");
+    const icon = document.getElementById("sidebarToggleIcon");
     if (!sidebar) return;
     const collapsed = sidebar.classList.toggle("collapsed");
+    if (btn) btn.style.left = collapsed ? "42px" : "185px";
+    if (icon) icon.style.transform = collapsed ? "rotate(180deg)" : "";
     try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
   };
   // Restaurer état sidebar
   try {
     if (localStorage.getItem("sidebarCollapsed") === "1") {
       const sidebar = document.getElementById("dashSidebar");
+      const btn = document.getElementById("sidebarToggleBtn");
+      const icon = document.getElementById("sidebarToggleIcon");
       if (sidebar) sidebar.classList.add("collapsed");
+      if (btn) btn.style.left = "42px";
+      if (icon) icon.style.transform = "rotate(180deg)";
     }
   } catch(e) {}
 })();</script>
@@ -20044,7 +19985,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 </html>
-
 
 
 
