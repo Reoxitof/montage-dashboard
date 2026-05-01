@@ -15677,6 +15677,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
         if (active && active.id === 'tab-stats' && typeof initTwitchChatFrame === 'function') initTwitchChatFrame();
+        if (active && active.id === 'tab-stats' && typeof initTwitchStreamPlayer === 'function') initTwitchStreamPlayer();
 
 
 
@@ -16584,7 +16585,11 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
 
-      if (!wrap || wrap.querySelector("iframe")) return;
+      if (!wrap) return;
+
+      // Forcer la recréation si l'iframe est vide ou absente
+      const existing = wrap.querySelector("iframe");
+      if (existing) return; // déjà initialisé
 
 
 
