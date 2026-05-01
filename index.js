@@ -2509,7 +2509,9 @@ app.get("/chatters", async (req, res) => {
     try {
         // /chat/chatters requiert un User Token (scope moderator:read:chatters)
         // On utilise TOUJOURS le user OAuth token ici, jamais l'App Token
-        const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+        // Lire depuis config en live pour prendre en compte les mises à jour
+        const rawOauth = config.twitchApi?.oauthToken || TWITCH_OAUTH || "";
+        const oauth = rawOauth.replace(/^oauth:/i, "");
         if (!oauth) {
             return res.json({ chatters: [], total: 0, error: "oauth_token_missing" });
         }
