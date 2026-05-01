@@ -8331,6 +8331,10 @@ body[data-user-role="modo"] .admin-only-action {
           <button class="btn btn-outline" onclick="loadTwitchChannelInfo()"><i class="fa-solid fa-rotate"></i></button>
         </div>
         <div id="twitchInfoStatus" style="font-size:12px;margin-top:10px;text-align:center;"></div>
+        <div style="margin-top:12px;padding:10px;background:rgba(155,89,182,.08);border-radius:8px;border:1px solid rgba(155,89,182,.2);">
+          <div style="font-size:11px;color:var(--white-dim);margin-bottom:8px;">🔑 Pour modifier le live, connecte ton compte Twitch avec les bons droits :</div>
+          <button class="btn btn-outline" onclick="connectTwitchOAuth()" style="width:100%;font-size:12px;"><i class="fa-brands fa-twitch" style="margin-right:6px;color:#9b59b6;"></i>Connecter Twitch (channel:manage:broadcast)</button>
+        </div>
       </div>
 
 
@@ -12097,6 +12101,19 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
+
+    function connectTwitchOAuth() {
+      const clientId = "hct8emjogyhew0chqsfi9rb6vdwt3h";
+      const redirect = encodeURIComponent(window.location.origin + "/twitch/oauth-callback");
+      const scopes = encodeURIComponent("channel:manage:broadcast chat:read chat:edit moderator:manage:banned_users");
+      const url = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=token&scope=${scopes}`;
+      const popup = window.open(url, "twitch-oauth", "width=600,height=700");
+      window._twitchOAuthInterval = setInterval(() => {
+        try {
+          if (popup.closed) { clearInterval(window._twitchOAuthInterval); loadTwitchChannelInfo(); }
+        } catch(e) {}
+      }, 500);
+    }
 
     /* ═══ TWITCH CHANNEL INFO ═══ */
 

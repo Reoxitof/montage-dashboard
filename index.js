@@ -2893,20 +2893,50 @@ app.post("/twitch/update-channel", requireModOrAdmin, async (req, res) => {
     if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return res.status(400).json({ error: "Twitch API non configurée" });
     const { title, gameId, language } = req.body;
     if (!title) return res.status(400).json({ error: "Titre requis" });
-    const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+
+    // Utilise le user token stocké (doit avoir channel:manage:broadcast)
+    const userToken = config.twitchApi?.userToken || TWITCH_OAUTH.replace(/^oauth:/i, "");
+
     try {
         const body = { title: String(title).slice(0, 140) };
         if (gameId) body.game_id = String(gameId);
         if (language) body.broadcaster_language = String(language);
         const r = await fetch(`https://api.twitch.tv/helix/channels?broadcaster_id=${TWITCH_BROADCASTER_ID}`, {
             method: "PATCH",
-            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}`, "Content-Type": "application/json" },
+            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${userToken}`, "Content-Type": "application/json" },
             body: JSON.stringify(body)
         });
         if (r.status === 204) return res.json({ success: true });
-        const data = await r.json();
-        res.status(r.ok ? 200 : 400).json(r.ok ? { success: true } : { error: data.message || "Erreur Twitch" });
+        const data = await r.json().catch(() => ({}));
+        console.log("[TWITCH UPDATE] status:", r.status, data);
+        res.status(r.ok ? 200 : 400).json(r.ok ? { success: true } : { error: data.message || "Token sans scope channel:manage:broadcast" });
     } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Sauvegarde du user token Twitch (généré via OAuth)
+app.post("/twitch/save-user-token", requireAdmin, (req, res) => {
+    const token = String(req.body.token || "").trim().replace(/^oauth:/i, "");
+    if (!token) return res.status(400).json({ error: "Token requis" });
+    config.twitchApi.userToken = token;
+    res.json({ success: true });
+});
+
+// Page de callback OAuth Twitch (implicit flow — le token est dans le hash)
+app.get("/twitch/oauth-callback", (req, res) => {
+    res.send(`<!DOCTYPE html><html><head><title>Twitch Auth</title></head><body>
+    <script>
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const token = params.get('access_token');
+      if (token) {
+        fetch('/twitch/save-user-token', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})
+          .then(() => { document.body.innerHTML = '<h2 style="font-family:sans-serif;color:green;">✅ Twitch connecté ! Vous pouvez fermer cette fenêtre.</h2>'; setTimeout(() => window.close(), 2000); });
+      } else {
+        document.body.innerHTML = '<h2 style="font-family:sans-serif;color:red;">❌ Erreur — token non reçu</h2>';
+      }
+    </script>
+    <p style="font-family:sans-serif;">Connexion en cours...</p>
+    </body></html>`);
 });
 
 /* ================= OBS API — ADMIN ONLY ================= */
