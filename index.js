@@ -640,7 +640,16 @@ app.use(secureWriteApis);
 app.get("/dashboard.html", requireDashboardAuth, (req, res) => res.sendFile(path.join(__dirname, "public", "dashboard.html")));
 app.get("/vote.html", (req, res) => res.sendFile(path.join(__dirname, "public", "vote.html")));
 app.get("/radio.html", (req, res) => res.sendFile(path.join(__dirname, "public", "radio.html")));
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
+// Redirige reoxitof.online vers la page vitrine
+app.get("/", (req, res) => {
+    const host = req.hostname || "";
+    if (host === "reoxitof.online" || host === "www.reoxitof.online") {
+        return res.sendFile(path.join(__dirname, "public", "home.html"));
+    }
+    return res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/home", (req, res) => res.sendFile(path.join(__dirname, "public", "home.html")));
 
 app.use(express.static(path.join(__dirname, "public"), { index: false }));
 

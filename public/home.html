@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reoxitof</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a12;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Fond animé */
+    .bg {
+      position: fixed; inset: 0; z-index: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(155,89,182,0.15) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 20%, rgba(100,50,180,0.1) 0%, transparent 50%),
+                  radial-gradient(ellipse at 60% 80%, rgba(155,89,182,0.08) 0%, transparent 50%);
+    }
+
+    .particles {
+      position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    }
+    .particle {
+      position: absolute;
+      width: 2px; height: 2px;
+      background: rgba(155,89,182,0.6);
+      border-radius: 50%;
+      animation: float linear infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-100px) translateX(var(--drift)); opacity: 0; }
+    }
+
+    /* Contenu */
+    .container {
+      position: relative; z-index: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+      gap: 32px;
+    }
+
+    /* Avatar */
+    .avatar-wrap {
+      position: relative;
+    }
+    .avatar-ring {
+      width: 140px; height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #9b59b6, #6c3483, #9b59b6);
+      padding: 3px;
+      animation: spin 8s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .avatar-inner {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: #0a0a12;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .avatar-inner img {
+      width: 100%; height: 100%;
+      object-fit: cover; border-radius: 50%;
+    }
+    .avatar-inner .avatar-placeholder {
+      font-size: 52px; color: #9b59b6;
+    }
+    .live-badge {
+      position: absolute; bottom: 6px; right: 6px;
+      background: #e74c3c;
+      color: #fff; font-size: 10px; font-weight: 900;
+      letter-spacing: 1px;
+      padding: 3px 8px; border-radius: 999px;
+      display: none;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .live-badge.visible { display: block; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* Nom */
+    .name {
+      font-size: 42px; font-weight: 900;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, #fff 0%, #c39bd3 50%, #9b59b6 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+    }
+    .tagline {
+      font-size: 14px; color: rgba(255,255,255,0.45);
+      letter-spacing: 2px; text-transform: uppercase;
+      text-align: center;
+    }
+
+    /* Liens sociaux */
+    .socials {
+      display: flex; flex-direction: column;
+      gap: 14px; width: 100%; max-width: 420px;
+    }
+
+    .social-btn {
+      display: flex; align-items: center; gap: 16px;
+      padding: 16px 24px;
+      border-radius: 16px;
+      text-decoration: none;
+      color: #fff;
+      font-weight: 700; font-size: 15px;
+      letter-spacing: 0.5px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      position: relative; overflow: hidden;
+    }
+    .social-btn::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.05);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .social-btn:hover { transform: translateY(-3px) scale(1.02); }
+    .social-btn:hover::before { opacity: 1; }
+
+    .social-btn .icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .social-btn .info { flex: 1; }
+    .social-btn .platform { font-size: 11px; opacity: 0.6; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; }
+    .social-btn .label { font-size: 16px; font-weight: 800; }
+    .social-btn .arrow { opacity: 0.4; font-size: 14px; }
+
+    /* Twitch */
+    .btn-twitch {
+      background: linear-gradient(135deg, rgba(145,70,255,0.2), rgba(100,40,200,0.15));
+      border: 1px solid rgba(145,70,255,0.35);
+      box-shadow: 0 4px 24px rgba(145,70,255,0.15);
+    }
+    .btn-twitch .icon { background: rgba(145,70,255,0.25); color: #bf94ff; }
+    .btn-twitch:hover { box-shadow: 0 8px 32px rgba(145,70,255,0.3); }
+
+    /* YouTube */
+    .btn-youtube {
+      background: linear-gradient(135deg, rgba(255,0,0,0.15), rgba(200,0,0,0.1));
+      border: 1px solid rgba(255,0,0,0.3);
+      box-shadow: 0 4px 24px rgba(255,0,0,0.1);
+    }
+    .btn-youtube .icon { background: rgba(255,0,0,0.2); color: #ff4444; }
+    .btn-youtube:hover { box-shadow: 0 8px 32px rgba(255,0,0,0.25); }
+
+    /* TikTok */
+    .btn-tiktok {
+      background: linear-gradient(135deg, rgba(0,242,234,0.1), rgba(255,0,80,0.1));
+      border: 1px solid rgba(0,242,234,0.25);
+      box-shadow: 0 4px 24px rgba(0,242,234,0.08);
+    }
+    .btn-tiktok .icon { background: rgba(0,0,0,0.3); color: #fff; }
+    .btn-tiktok:hover { box-shadow: 0 8px 32px rgba(0,242,234,0.2); }
+
+    /* Discord */
+    .btn-discord {
+      background: linear-gradient(135deg, rgba(88,101,242,0.2), rgba(60,70,200,0.15));
+      border: 1px solid rgba(88,101,242,0.35);
+      box-shadow: 0 4px 24px rgba(88,101,242,0.15);
+    }
+    .btn-discord .icon { background: rgba(88,101,242,0.25); color: #7289da; }
+    .btn-discord:hover { box-shadow: 0 8px 32px rgba(88,101,242,0.3); }
+
+    /* Footer */
+    .footer {
+      font-size: 11px; color: rgba(255,255,255,0.2);
+      letter-spacing: 1px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg"></div>
+<div class="particles" id="particles"></div>
+
+<div class="container">
+
+  <!-- Avatar -->
+  <div class="avatar-wrap">
+    <div class="avatar-ring">
+      <div class="avatar-inner">
+        <img src="https://static-cdn.jtvnw.net/jtv_user_pictures/reoxitof-profile_image-300x300.png"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+             alt="Reoxitof" />
+        <div class="avatar-placeholder" style="display:none;"><i class="fa-solid fa-user"></i></div>
+      </div>
+    </div>
+    <div class="live-badge" id="liveBadge">🔴 LIVE</div>
+  </div>
+
+  <!-- Nom -->
+  <div>
+    <div class="name">REOXITOF</div>
+    <div class="tagline">Streamer • Créateur de contenu</div>
+  </div>
+
+  <!-- Liens -->
+  <div class="socials">
+
+    <a href="https://twitch.tv/reoxitof" target="_blank" class="social-btn btn-twitch">
+      <div class="icon"><i class="fa-brands fa-twitch"></i></div>
+      <div class="info">
+        <div class="platform">Twitch</div>
+        <div class="label">twitch.tv/reoxitof</div>
+      </div>
+      <i class="fa-solid fa-arrow-right arrow"></i>
+    </a>
+
+    <a href="https://www.youtube.com/@ReoxitofTu" target="_blank" class="social-btn btn-youtube">
+      <div class="icon"><i class="fa-brands fa-youtube"></i></div>
+      <div class="info">
+        <div class="platform">YouTube</div>
+        <div class="label">@ReoxitofTu</div>
+      </div>
+      <i class="fa-solid fa-arrow-right arrow"></i>
+    </a>
+
+    <a href="https://tiktok.com/@reoxitof" target="_blank" class="social-btn btn-tiktok">
+      <div class="icon"><i class="fa-brands fa-tiktok"></i></div>
+      <div class="info">
+        <div class="platform">TikTok</div>
+        <div class="label">@reoxitof</div>
+      </div>
+      <i class="fa-solid fa-arrow-right arrow"></i>
+    </a>
+
+    <a href="https://discord.gg/w8TxNd6SwX" target="_blank" class="social-btn btn-discord">
+      <div class="icon"><i class="fa-brands fa-discord"></i></div>
+      <div class="info">
+        <div class="platform">Discord</div>
+        <div class="label">Rejoindre le serveur</div>
+      </div>
+      <i class="fa-solid fa-arrow-right arrow"></i>
+    </a>
+
+  </div>
+
+  <div class="footer">© 2026 Reoxitof — Tous droits réservés</div>
+
+</div>
+
+<script>
+  // Particules
+  const container = document.getElementById("particles");
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement("div");
+    p.className = "particle";
+    p.style.cssText = `
+      left: ${Math.random() * 100}%;
+      width: ${1 + Math.random() * 3}px;
+      height: ${1 + Math.random() * 3}px;
+      animation-duration: ${8 + Math.random() * 15}s;
+      animation-delay: ${Math.random() * 10}s;
+      --drift: ${-50 + Math.random() * 100}px;
+    `;
+    container.appendChild(p);
+  }
+
+  // Vérifier si en live
+  async function checkLive() {
+    try {
+      const r = await fetch("https://montage-dashboard.sliplane.app/viewers", { cache: "no-store" });
+      const d = await r.json();
+      const badge = document.getElementById("liveBadge");
+      if (d.current > 0) badge.classList.add("visible");
+      else badge.classList.remove("visible");
+    } catch(e) {}
+  }
+  checkLive();
+  setInterval(checkLive, 60000);
+</script>
+
+</body>
+</html>
