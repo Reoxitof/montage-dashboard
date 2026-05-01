@@ -73,6 +73,7 @@ async function loadConfig() {
 
 function applyTheme(theme) {
   currentTheme = theme;
+  console.log("[NUI] applyTheme appelé:", theme.primary);
   const root = document.documentElement;
   if (theme.primary) {
     root.style.setProperty("--gta-violet", theme.primary);
@@ -85,6 +86,7 @@ function applyTheme(theme) {
     root.style.setProperty("--glow-violet", `0 0 20px rgba(${r},${g},${b},0.2),0 0 60px rgba(${r},${g},${b},0.06)`);
     root.style.setProperty("--neon-box", `0 0 6px rgba(${r},${g},${b},0.6),0 0 14px rgba(${r},${g},${b},0.4),0 0 30px rgba(${r},${g},${b},0.2),0 0 50px rgba(${r},${g},${b},0.1)`);
     // Injecter un style dynamique pour écraser les couleurs hardcodées
+    console.log("[NUI] _injectThemeOverride appelé:", r, g, b);
     _injectThemeOverride(r, g, b);
   }
   if (theme.primaryDim) {
@@ -111,6 +113,7 @@ function _injectThemeOverride(r, g, b) {
     el.id = "_themeOverride";
     document.head.appendChild(el);
   }
+  console.log("[NUI] Style injecté pour rgb:", r, g, b);
   // Remplacer toutes les couleurs violet hardcodées par la nouvelle couleur
   el.textContent = `
     :root {
@@ -186,12 +189,15 @@ function applyOverlayProfile(profile) {
   // Couleur accent
   if (profile.accentColor) {
     const root = document.documentElement;
-    // Compute dim/bright from accent
+    const r = parseInt(profile.accentColor.slice(1,3),16);
+    const g = parseInt(profile.accentColor.slice(3,5),16);
+    const b = parseInt(profile.accentColor.slice(5,7),16);
     root.style.setProperty("--gta-violet", profile.accentColor);
     root.style.setProperty("--nui-violet", profile.accentColor);
-    // Keep dim/bright proportional — just set accent
     root.style.setProperty("--glass-border", hexToRgba(profile.accentColor, 0.3));
     root.style.setProperty("--glow-violet", `0 0 20px ${hexToRgba(profile.accentColor, 0.2)}, 0 0 60px ${hexToRgba(profile.accentColor, 0.06)}`);
+    // Appliquer aussi le style override complet
+    _injectThemeOverride(r, g, b);
   }
 
   console.log("[NUI] Profil appliqué :", profile.name || "?");
