@@ -1,4 +1,4 @@
-﻿const { spawn } = require("child_process");
+const { spawn } = require("child_process");
 const express = require("express");
 const path = require("path");
 const http = require("http");
@@ -330,7 +330,16 @@ async function loadSavedProfile() {
                 console.log("[PROFILE] Profil restauré :", profileId);
             }
         }
-    } catch(e) {
+
+
+
+
+
+
+
+
+
+
         console.log("[PROFILE] Erreur chargement profil :", e.message);
     }
 }
@@ -1345,6 +1354,21 @@ let state = {
     }
 };
 
+// Charger le thème depuis PostgreSQL (appelé après init de state)
+async function loadSavedTheme() {
+    try {
+        const res = await pgPool.query("SELECT value FROM settings WHERE key = 'theme'");
+        if (res.rows.length > 0) {
+            const saved = JSON.parse(res.rows[0].value);
+            Object.assign(state.theme, saved);
+            console.log('[THEME] Thème restauré depuis DB :', state.theme.primary);
+        }
+    } catch(e) {
+        console.log('[THEME] Erreur chargement thème DB :', e.message);
+    }
+}
+loadSavedTheme();
+
 /* ================= VOTE STATE ================= */
 
 let voteState = {
@@ -2165,6 +2189,11 @@ app.post("/theme", (req, res) => {
     if (t.accent) state.theme.accent = t.accent;
     io.emit("themeUpdate", state.theme);
     savePersistentState();
+    // Sauvegarder aussi dans PostgreSQL pour survivre aux redémarrages
+    pgPool.query(
+        `INSERT INTO settings (key, value) VALUES ('theme', $1) ON CONFLICT (key) DO UPDATE SET value = $1`,
+        [JSON.stringify(state.theme)]
+    ).catch(e => console.log("[THEME] Erreur sauvegarde DB :", e.message));
     res.json(state.theme);
 });
 
