@@ -19923,6 +19923,13 @@ document.addEventListener("DOMContentLoaded", () => {
 /* ══ CHATTERS POPUP LOGIC ══ */
 let _allChatters = [];
 
+// Bots connus à classer automatiquement
+const KNOWN_BOTS = ["streamelements","nightbot","moobot","streamlabs","fossabot","wizebot","botisimo","commanderroot","sery_bot","soundalerts","kofistreambot","own3d","pretzelrocks","logviewer","creatisbot","streamholics","anotherttvviewer","twitchstreamtracker","lurxx","streamscheme","streamdps"];
+
+function _isBot(name) {
+  return KNOWN_BOTS.includes((name||"").toLowerCase());
+}
+
 function openChattersPopup() {
   document.getElementById("chattersPopup").classList.add("open");
   document.getElementById("chattersSearch").value = "";
@@ -19942,6 +19949,21 @@ async function loadChatters() {
   try {
     const res = await fetch("/chatters", { cache: "no-store" });
     const data = await res.json();
+
+    if (data.error && !(data.chatters && data.chatters.length)) {
+      let msg = "Erreur de chargement";
+      if (data.error.toLowerCase().includes("scope") || data.error.toLowerCase().includes("moderator:read:chatters")) {
+        msg = `<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b"></i> Scope manquant<br><small style="color:#7f7394;font-weight:400;line-height:1.6">Ton token OAuth doit avoir le scope<br><code style="color:#c39bd3">moderator:read:chatters</code></small>`;
+      } else if (data.error === "oauth_token_missing") {
+        msg = `<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b"></i> Token OAuth manquant`;
+      } else if (data.error.includes("401") || data.error.includes("403")) {
+        msg = `<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b"></i> Token invalide ou scope manquant<br><small style="color:#7f7394;font-weight:400">Scope requis : <code style="color:#c39bd3">moderator:read:chatters</code></small>`;
+      }
+      list.innerHTML = `<div style="color:#ff6b6b;font-size:13px;text-align:center;padding:20px 0;line-height:2">${msg}</div>`;
+      count.textContent = "—";
+      return;
+    }
+
     _allChatters = data.chatters || [];
     count.textContent = data.total || _allChatters.length;
     renderChatters(_allChatters);
@@ -19959,14 +19981,35 @@ function renderChatters(chatters) {
     return;
   }
   empty.style.display = "none";
-  list.innerHTML = chatters.map(c => {
-    const name = c.user_name || c.user_login || "?";
-    const initial = name.charAt(0).toUpperCase();
-    return `<div class="chatter-item">
-      <div class="chatter-avatar">${initial}</div>
-      <span>${name}</span>
-    </div>`;
-  }).join("");
+
+  // Récupérer le channel name pour identifier le broadcaster
+  const channelName = (window._twitchChannel || document.querySelector("meta[name='twitch-channel']")?.content || "reoxitof").toLowerCase();
+
+  // Grouper : broadcaster / bots / users
+  const broadcaster = chatters.filter(c => (c.user_login||"").toLowerCase() === channelName);
+  const bots = chatters.filter(c => (c.user_login||"").toLowerCase() !== channelName && _isBot(c.user_login));
+  const users = chatters.filter(c => (c.user_login||"").toLowerCase() !== channelName && !_isBot(c.user_login));
+
+  function renderGroup(label, icon, items, color) {
+    if (!items.length) return "";
+    return `
+      <div style="color:${color};font-size:10px;font-weight:900;letter-spacing:2px;text-transform:uppercase;padding:10px 4px 4px;opacity:.8">
+        <i class="${icon}"></i> ${label} <span style="opacity:.6">(${items.length})</span>
+      </div>
+      ${items.map(c => {
+        const name = c.user_name || c.user_login || "?";
+        const initial = name.charAt(0).toUpperCase();
+        return `<div class="chatter-item">
+          <div class="chatter-avatar" style="background:linear-gradient(135deg,${color},${color}88)">${initial}</div>
+          <span>${name}</span>
+        </div>`;
+      }).join("")}`;
+  }
+
+  list.innerHTML =
+    renderGroup("Diffuseur", "fa-solid fa-broadcast-tower", broadcaster, "#f59e0b") +
+    renderGroup("Bots de chat", "fa-solid fa-robot", bots, "#64748b") +
+    renderGroup("Utilisateurs", "fa-solid fa-users", users, "#9b59b6");
 }
 
 function filterChatters(q) {

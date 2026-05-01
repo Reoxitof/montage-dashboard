@@ -2507,17 +2507,30 @@ app.get("/chatters", async (req, res) => {
         return res.json({ chatters: [], total: 0, error: "twitch_not_configured" });
     }
     try {
-        const headers = getTwitchAuthHeaders();
+        // /chat/chatters requiert un User Token (scope moderator:read:chatters)
+        // On utilise TOUJOURS le user OAuth token ici, jamais l'App Token
+        const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+        if (!oauth) {
+            return res.json({ chatters: [], total: 0, error: "oauth_token_missing" });
+        }
+        const headers = {
+            "Client-ID": TWITCH_CLIENT_ID,
+            "Authorization": `Bearer ${oauth}`
+        };
+
         // Récupère jusqu'à 1000 chatters via Helix
         const response = await fetch(
             `https://api.twitch.tv/helix/chat/chatters?broadcaster_id=${TWITCH_BROADCASTER_ID}&moderator_id=${TWITCH_BROADCASTER_ID}&first=1000`,
             { headers }
         );
+
         if (!response.ok) {
             const err = await response.json().catch(() => ({}));
-            console.log("[TWITCH API] Erreur chatters:", response.status, err.message);
-            return res.json({ chatters: [], total: 0, error: `twitch_${response.status}` });
+            console.log("[TWITCH API] Erreur chatters:", response.status, err.message || err.error);
+            // Si 401/403 → scope manquant, on retourne l'erreur lisible
+            return res.json({ chatters: [], total: 0, error: err.message || `twitch_${response.status}` });
         }
+
         const data = await response.json();
         const chatters = (data.data || []).map(u => ({
             user_id: u.user_id,
