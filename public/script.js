@@ -682,7 +682,10 @@ function initSocket() {
     });
 
     socket.on("subGoal", (data) => updateSubGoal(data));
-    socket.on("themeUpdate", (theme) => applyTheme(theme));
+    socket.on("themeUpdate", (theme) => {
+      console.log("[NUI] themeUpdate reçu via socket:", theme.primary);
+      applyTheme(theme);
+    });
     socket.on("sceneChange", (scene) => applyScene(scene));
     socket.on("highlight", (data) => showHighlight(data));
     socket.on("pollUpdate", (data) => updatePollOverlay(data));
