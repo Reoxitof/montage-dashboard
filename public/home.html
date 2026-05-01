@@ -285,24 +285,13 @@
     container.appendChild(p);
   }
 
-  // Charger l'avatar Twitch via API
-  async function loadAvatar() {
-    try {
-      const r = await fetch("/twitch/channel-info");
-      const d = await r.json();
-      if (d.profile_image_url || d.broadcaster_login) {
-        // Essaie via notre API serveur
-        const img = document.getElementById("avatarImg");
-        const placeholder = document.getElementById("avatarPlaceholder");
-        const url = d.profile_image_url || `https://static-cdn.jtvnw.net/jtv_user_pictures/${d.broadcaster_login}-profile_image-300x300.png`;
-        img.src = url;
-        img.style.display = "block";
-        placeholder.style.display = "none";
-        img.onerror = () => { img.style.display = "none"; placeholder.style.display = "flex"; };
-      }
-    } catch(e) {}
-  }
-  loadAvatar();
+  // Charger l'avatar local
+  const img = document.getElementById("avatarImg");
+  const placeholder = document.getElementById("avatarPlaceholder");
+  img.src = "/image/avatar.png";
+  img.style.display = "block";
+  placeholder.style.display = "none";
+  img.onerror = () => { img.style.display = "none"; placeholder.style.display = "flex"; };
   async function checkLive() {
     try {
       const r = await fetch("https://montage-dashboard.sliplane.app/viewers", { cache: "no-store" });
