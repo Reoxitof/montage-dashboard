@@ -2773,32 +2773,39 @@ twitchClient.on("message", (channel, tags, message, self) => {
 /* ================= TWITCH API — FOLLOWERS + VIEWERS ================= */
 
 async function fetchFollowerCount() {
-    if (!TWITCH_CLIENT_ID || !TWITCH_OAUTH || !TWITCH_BROADCASTER_ID) return;
+    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return;
 
     try {
+        const headers = getTwitchAuthHeaders();
         const response = await fetch(
             `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${TWITCH_BROADCASTER_ID}&first=1`,
-            { headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${TWITCH_OAUTH}` } }
+            { headers }
         );
-        if (!response.ok) return;
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            console.log("[TWITCH API] Erreur followers:", response.status, err.message);
+            return;
+        }
         const data = await response.json();
         const total = data.total || 0;
         if (state.subGoal.current !== total) {
             state.subGoal.current = total;
             io.emit("subGoal", state.subGoal);
         }
+        console.log("[TWITCH API] Followers:", total);
     } catch (e) {
         console.log("[TWITCH API] Erreur followers :", e.message);
     }
 }
 
 async function fetchViewerCount() {
-    if (!TWITCH_CLIENT_ID || !TWITCH_OAUTH || !TWITCH_BROADCASTER_ID) return;
+    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return;
 
     try {
+        const headers = getTwitchAuthHeaders();
         const response = await fetch(
             `https://api.twitch.tv/helix/streams?user_id=${TWITCH_BROADCASTER_ID}`,
-            { headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${TWITCH_OAUTH}` } }
+            { headers }
         );
         if (!response.ok) return;
         const data = await response.json();
