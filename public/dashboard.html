@@ -12304,10 +12304,7 @@ body[data-user-role="modo"] .admin-only-action {
           }
           tick(); window._brbInterval = setInterval(tick, 1000);
         }
-        if (type === "fin") {
-          clearTimeout(window._finTimeout);
-          window._finTimeout = setTimeout(() => hideScreen(), 10000);
-        }
+        // FIN — reste affiché jusqu'à action manuelle (Masquer)
       } catch (e) { showToast("Erreur"); }
     }
 
