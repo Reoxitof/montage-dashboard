@@ -34,7 +34,7 @@
     "allowRegister": true
   },
   "fivem": {
-    "serverName": "BlueSky Roleplay",
+    "serverName": "Reoxitof",
     "endpoint": "http://151.247.192.13:30120/dynamic.json",
     "corsProxy": ""
   },
@@ -49,15 +49,15 @@
     "activeProfile": "perso"
   },
   "overlayProfiles": {
-    "bluesky": {
-      "name": "BlueSky Roleplay",
+    "reoxitof": {
+      "name": "Reoxitof",
       "logoLeft": "/image/logo.png",
       "logoRight": "/image/logo2.png",
-      "discordInvite": "discord.gg/EZDacD76M4",
+      "discordInvite": "discord.gg/w8TxNd6SwX",
       "accentColor": "#9b59b6",
       "rotatingTexts": [
-        "BLUESKY ROLEPLAY",
-        "RECRUTEMENT STAFF ON"
+        "REOXITOF",
+        "BIENVENUE SUR LE STREAM"
       ]
     },
     "storylife": {

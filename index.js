@@ -402,7 +402,7 @@ function renderAuthPage(type, req, res) {
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>BlueSky — ${title}</title>
+<title>Reoxitof — ${title}</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Anton&display=swap');
 *{box-sizing:border-box}
@@ -422,7 +422,7 @@ small{display:block;margin-top:16px;color:#7f7394;line-height:1.4}
 <body>
 <div class="card">
 ${error}
-<h1>BLUESKY PANEL</h1>
+<h1>REOXITOF PANEL</h1>
 <p>${title} sécurisé pour le dashboard. Admin = accès complet, Modérateur = modération + vote.</p>
 <form method="POST" action="${isRegister ? "/auth/register" : "/auth/login"}">
 <label>Pseudo</label>
@@ -812,7 +812,7 @@ async function callObsBridge(endpoint, body = {}, method = "POST") {
     }
 }
 
-app.get("/health", (req, res) => res.json({ success: true, name: "BlueSky Final God Panel", time: new Date().toISOString() }));
+app.get("/health", (req, res) => res.json({ success: true, name: "Reoxitof Final God Panel", time: new Date().toISOString() }));
 
 app.get("/obs/bridge/status", async (req, res) => {
     try {
@@ -1886,7 +1886,7 @@ function handleMiniGame(username, cmd, args, twitchClient, channel) {
 /* ================= ROUTE CONFIG (pour le client) ================= */
 
 app.get("/config", (req, res) => {
-    const activeProfileId = config.overlay?.activeProfile || "bluesky";
+    const activeProfileId = config.overlay?.activeProfile || "reoxitof";
     const profiles = config.overlayProfiles || {};
     const activeProfile = profiles[activeProfileId] || null;
     res.json({
@@ -1966,7 +1966,7 @@ app.post("/overlay/profile/texts", requireAdmin, (req, res) => {
 app.get("/fivem/status", async (req, res) => {
     try {
         // Check active overlay profile for a custom fivem endpoint
-        const activeProfileId = config.overlay?.activeProfile || "bluesky";
+        const activeProfileId = config.overlay?.activeProfile || "reoxitof";
         const activeProfile = config.overlayProfiles?.[activeProfileId];
 
         // If active profile has a cfx endpoint
@@ -3134,7 +3134,7 @@ app.post("/obs/alert", requireAdmin, async (req, res) => {
     await loadSavedProfile();
 server.listen(APP_PORT, APP_HOST, () => {
     console.log("═══════════════════════════════════════════");
-    console.log(" BlueSky Overlay — NUI Edition v3.0");
+    console.log(" Reoxitof Overlay — NUI Edition v3.0");
     console.log(`  Mode     : ${config.server.mode === "local" ? "LOCAL (127.0.0.1)" : "HÉBERGÉ (0.0.0.0)"}`);
     console.log(`  Port     : ${APP_PORT}`);
     console.log(`  URL      : ${PUBLIC_URL}`);

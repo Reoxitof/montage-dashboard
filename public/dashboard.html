@@ -18,7 +18,7 @@
 
 
 
-  <title>BlueSky — Dashboard v3</title>
+  <title>Reoxitof — Dashboard v3</title>
 
 
 
@@ -6867,7 +6867,7 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-        <div class="header-title">BLUESKY DASHBOARD</div>
+        <div class="header-title">REOXITOF DASHBOARD</div>
 
 
 
@@ -6923,7 +6923,7 @@ body[data-user-role="modo"] .admin-only-action {
       <div class="sidebar-logo">
         <span class="sidebar-logo-icon">🎮</span>
         <div>
-          <div class="sidebar-logo-title">BLUESKY</div>
+          <div class="sidebar-logo-title">REOXITOF</div>
           <div class="sidebar-logo-sub">Dashboard v3</div>
         </div>
       </div>
@@ -8322,7 +8322,7 @@ body[data-user-role="modo"] .admin-only-action {
         <div style="margin-bottom:14px;">
           <label style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--violet-bright);display:block;margin-bottom:6px;">TITRE DU LIVE</label>
           <div style="display:flex;gap:8px;">
-            <input class="input-field" type="text" id="twitchLiveTitle" placeholder="Ex: GTA V RP — BlueSky Roleplay" style="flex:1;" />
+            <input class="input-field" type="text" id="twitchLiveTitle" placeholder="Ex: GTA V RP — Reoxitof" style="flex:1;" />
           </div>
         </div>
 
@@ -10433,7 +10433,7 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-      if (title) title.textContent = "BLUESKY MODÉRATION";
+      if (title) title.textContent = "REOXITOF MODÉRATION";
 
 
 
@@ -19716,14 +19716,14 @@ function _scrollTop() {
 /* ═══ OVERLAY PROFILES ═══ */
 
 let _overlayProfiles = {};
-let _activeProfileId = "bluesky";
+let _activeProfileId = "reoxitof";
 
 async function loadOverlayProfiles() {
   try {
     const res = await fetch("/config", { cache: "no-store" });
     const data = await res.json();
     _overlayProfiles = data.overlayProfiles || {};
-    _activeProfileId = data.activeProfile || "bluesky";
+    _activeProfileId = data.activeProfile || "reoxitof";
 
     // URL overlay
     const urlEl = document.getElementById("overlayUrlDisplay");
@@ -19743,7 +19743,7 @@ function renderProfileButtons() {
   if (!grid) return;
 
   const profileColors = {
-    bluesky: "#9b59b6",
+    reoxitof: "#9b59b6",
     storylife: "#00d4b4",
     perso: "#9b59b6"
   };

@@ -1,12 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════
-   BLUESKY OVERLAY — NUI SIGNATURE EDITION v3.0
+   REOXITOF OVERLAY — NUI SIGNATURE EDITION v3.0
    Script principal — Toutes fonctionnalités
    ═══════════════════════════════════════════════════════════════ */
 
 /* ================= CONFIG DYNAMIQUE ================= */
 
 let CONFIG = null;
-let SERVER_NAME = "BlueSky Roleplay";
+let SERVER_NAME = "Reoxitof";
 let FIVEM_ENDPOINT = "";
 let lastServerName = "";
 let lastPlayers = '<i class="fa-solid fa-users"></i> --/--';
@@ -37,7 +37,7 @@ async function loadConfig() {
     const res = await fetch("/config", { cache: "no-store" });
     CONFIG = await res.json();
 
-    SERVER_NAME = CONFIG.fivem.serverName || "BlueSky Roleplay";
+    SERVER_NAME = CONFIG.fivem.serverName || "Reoxitof";
     lastServerName = SERVER_NAME;
 
     FIVEM_ENDPOINT = CONFIG.fivem.corsProxy
@@ -542,7 +542,7 @@ async function checkServerState() {
 
 /* ================= TEXTE ROTATIF ================= */
 
-const texts = ["BLUESKY ROLEPLAY", "RECRUTEMENT STAFF", "SERVEUR UNIQUE"];
+const texts = ["REOXITOF", "RECRUTEMENT STAFF", "SERVEUR UNIQUE"];
 let textIndex = 0;
 const rotatingEl = document.getElementById("rotatingText");
 
