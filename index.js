@@ -315,6 +315,27 @@ async function dbCountUsers() {
 // Init DB au démarrage
 initDb().catch(e => console.error("[AUTH] Erreur PostgreSQL :", e.message));
 
+// Charger le profil overlay sauvegardé
+async function loadSavedProfile() {
+    try {
+        await pgPool.query(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);`);
+        const res = await pgPool.query(`SELECT value FROM settings WHERE key = 'activeProfile'`);
+        if (res.rows.length > 0) {
+            const profileId = res.rows[0].value;
+            if (config.overlayProfiles?.[profileId]) {
+                config.overlay.activeProfile = profileId;
+                const p = config.overlayProfiles[profileId];
+                config.overlay.rotatingTexts = p.rotatingTexts;
+                config.overlay.discordInvite = p.discordInvite;
+                console.log("[PROFILE] Profil restauré :", profileId);
+            }
+        }
+    } catch(e) {
+        console.log("[PROFILE] Erreur chargement profil :", e.message);
+    }
+}
+loadSavedProfile();
+
 
 function sanitizeUser(user) {
     if (!user) return null;
@@ -1855,7 +1876,7 @@ app.get("/config", (req, res) => {
 });
 
 /* ── PROFILE SWITCH ── */
-app.post("/overlay/profile", requireAdmin, (req, res) => {
+app.post("/overlay/profile", requireAdmin, async (req, res) => {
     const profileId = String(req.body.profile || "").trim();
     const profiles = config.overlayProfiles || {};
     if (!profiles[profileId]) return res.status(400).json({ error: "profile_not_found" });
@@ -1867,11 +1888,18 @@ app.post("/overlay/profile", requireAdmin, (req, res) => {
     config.overlay.rotatingTexts = profileData.rotatingTexts;
     config.overlay.discordInvite = profileData.discordInvite;
 
-    // Save config
+    // Sauvegarde dans PostgreSQL
     try {
-        fs.writeFileSync(path.join(__dirname, "config.json"), JSON.stringify(config, null, 2), "utf-8");
+        await pgPool.query(`
+            CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+        `);
+        await pgPool.query(
+            `INSERT INTO settings (key, value) VALUES ('activeProfile', $1)
+             ON CONFLICT (key) DO UPDATE SET value = $1`,
+            [profileId]
+        );
     } catch (e) {
-        console.log("[PROFILE] Erreur sauvegarde config :", e.message);
+        console.log("[PROFILE] Erreur sauvegarde PG :", e.message);
     }
 
     // Emit to all overlays
