@@ -76,16 +76,27 @@ function applyTheme(theme) {
   console.log("[NUI] applyTheme appelé:", theme.primary);
   const root = document.documentElement;
   if (theme.primary) {
-    root.style.setProperty("--gta-violet", theme.primary);
-    root.style.setProperty("--nui-violet", theme.primary);
-    // Mettre à jour les variables dérivées utilisées par l'overlay
     const r = parseInt(theme.primary.slice(1,3),16);
     const g = parseInt(theme.primary.slice(3,5),16);
     const b = parseInt(theme.primary.slice(5,7),16);
+    root.style.setProperty("--gta-violet", theme.primary);
+    root.style.setProperty("--nui-violet", theme.primary);
+    // Variables RGB pour les rgba() hardcodés dans style.css
+    root.style.setProperty("--vc-r", r);
+    root.style.setProperty("--vc-g", g);
+    root.style.setProperty("--vc-b", b);
+    // Dim (~70% de la couleur principale)
+    root.style.setProperty("--vc-rd", Math.round(r*0.8));
+    root.style.setProperty("--vc-gd", Math.round(g*0.8));
+    root.style.setProperty("--vc-bd", Math.round(b*0.8));
+    // Bright (~125% de la couleur principale, plafonné à 255)
+    root.style.setProperty("--vc-rb", Math.min(255, Math.round(r*1.25)));
+    root.style.setProperty("--vc-gb", Math.min(255, Math.round(g*1.25)));
+    root.style.setProperty("--vc-bb", Math.min(255, Math.round(b*1.25)));
+    // Variables dérivées
     root.style.setProperty("--glass-border", `rgba(${r},${g},${b},0.3)`);
     root.style.setProperty("--glow-violet", `0 0 20px rgba(${r},${g},${b},0.2),0 0 60px rgba(${r},${g},${b},0.06)`);
     root.style.setProperty("--neon-box", `0 0 6px rgba(${r},${g},${b},0.6),0 0 14px rgba(${r},${g},${b},0.4),0 0 30px rgba(${r},${g},${b},0.2),0 0 50px rgba(${r},${g},${b},0.1)`);
-    // Injecter un style dynamique pour écraser les couleurs hardcodées
     console.log("[NUI] _injectThemeOverride appelé:", r, g, b);
     _injectThemeOverride(r, g, b);
   }
@@ -194,9 +205,17 @@ function applyOverlayProfile(profile) {
     const b = parseInt(profile.accentColor.slice(5,7),16);
     root.style.setProperty("--gta-violet", profile.accentColor);
     root.style.setProperty("--nui-violet", profile.accentColor);
+    root.style.setProperty("--vc-r", r);
+    root.style.setProperty("--vc-g", g);
+    root.style.setProperty("--vc-b", b);
+    root.style.setProperty("--vc-rd", Math.round(r*0.8));
+    root.style.setProperty("--vc-gd", Math.round(g*0.8));
+    root.style.setProperty("--vc-bd", Math.round(b*0.8));
+    root.style.setProperty("--vc-rb", Math.min(255, Math.round(r*1.25)));
+    root.style.setProperty("--vc-gb", Math.min(255, Math.round(g*1.25)));
+    root.style.setProperty("--vc-bb", Math.min(255, Math.round(b*1.25)));
     root.style.setProperty("--glass-border", hexToRgba(profile.accentColor, 0.3));
     root.style.setProperty("--glow-violet", `0 0 20px ${hexToRgba(profile.accentColor, 0.2)}, 0 0 60px ${hexToRgba(profile.accentColor, 0.06)}`);
-    // Appliquer aussi le style override complet
     _injectThemeOverride(r, g, b);
   }
 
