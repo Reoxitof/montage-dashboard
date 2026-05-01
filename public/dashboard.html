@@ -6548,13 +6548,16 @@ body[data-user-role="modo"] .admin-only-action {
       justify-content: center;
       padding: 10px 0;
       gap: 0;
-    }
-    .sidebar.collapsed .tab > *:not(i):not(.fa-solid):not(.fa-brands):not(.fa-regular) {
-      display: none !important;
+      font-size: 0 !important;
+      color: transparent;
     }
     .sidebar.collapsed .tab i {
+      font-size: 16px !important;
+      color: var(--white-dim);
       width: auto;
-      font-size: 16px;
+    }
+    .sidebar.collapsed .tab.active i {
+      color: #fff;
     }
     .sidebar.collapsed .sidebar-logo {
       justify-content: center;
