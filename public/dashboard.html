@@ -6488,6 +6488,53 @@ body[data-user-role="modo"] .admin-only-action {
       overflow-y: auto;
       overflow-x: hidden;
       height: 100%;
+      transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
+      position: relative;
+    }
+
+    /* Bouton toggle sidebar */
+    .sidebar-toggle {
+      position: absolute;
+      top: 50%;
+      right: -12px;
+      transform: translateY(-50%);
+      width: 24px; height: 24px;
+      background: var(--violet);
+      border: 1px solid rgba(155,89,182,.5);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      z-index: 200;
+      font-size: 10px;
+      color: #fff;
+      transition: transform 0.25s ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    }
+    .sidebar-toggle:hover { background: var(--violet-bright); }
+
+    /* Sidebar rétractée */
+    .sidebar.collapsed {
+      width: 48px;
+      min-width: 48px;
+      padding: 12px 4px;
+    }
+    .sidebar.collapsed .sidebar-logo-title,
+    .sidebar.collapsed .sidebar-logo-sub,
+    .sidebar.collapsed .tab span:not(.badge-modo):not(.badge-admin),
+    .sidebar.collapsed .sidebar-section-label,
+    .sidebar.collapsed .badge-modo,
+    .sidebar.collapsed .badge-admin {
+      display: none !important;
+    }
+    .sidebar.collapsed .tab {
+      justify-content: center;
+      padding: 8px 4px;
+    }
+    .sidebar.collapsed .sidebar-toggle {
+      right: -12px;
+    }
+    .sidebar.collapsed .sidebar-toggle i {
+      transform: rotate(180deg);
     }
 
     .sidebar-logo {
@@ -6900,7 +6947,8 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-    <nav class="sidebar">
+    <nav class="sidebar" id="dashSidebar">
+      <button class="sidebar-toggle" onclick="toggleSidebar()" title="Rétracter le menu"><i class="fa-solid fa-chevron-left"></i></button>
       <div class="sidebar-logo">
         <span class="sidebar-logo-icon">🎮</span>
         <div>
@@ -19794,11 +19842,26 @@ function _scrollTop() {
     _orig(name, btn);
     setTimeout(_scrollTop, 10);
   };
-  // Restaurer le dernier onglet visité
+    // Restaurer le dernier onglet visité
   const _lastTab = (function() { try { return localStorage.getItem("lastTab") || "alerts"; } catch(e) { return "alerts"; } })();
   setTimeout(function() { window.switchTab(_lastTab); }, 300);
   setTimeout(function() { window.switchTab(_lastTab); }, 900);
   setTimeout(function() { window.switchTab(_lastTab); }, 1600);
+
+  // Toggle sidebar
+  window.toggleSidebar = function() {
+    const sidebar = document.getElementById("dashSidebar");
+    if (!sidebar) return;
+    const collapsed = sidebar.classList.toggle("collapsed");
+    try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
+  };
+  // Restaurer état sidebar
+  try {
+    if (localStorage.getItem("sidebarCollapsed") === "1") {
+      const sidebar = document.getElementById("dashSidebar");
+      if (sidebar) sidebar.classList.add("collapsed");
+    }
+  } catch(e) {}
 })();</script>
 
 <script>
