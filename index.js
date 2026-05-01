@@ -359,6 +359,7 @@ function isValidDashboardRole(role) {
 function requireDashboardAuth(req, res, next) {
     if (!localAuthEnabled()) return next();
     if (req.session?.user?.role === "admin" || req.session?.user?.role === "mod") return next();
+    if (req.session?.user?.role === "neutre") return res.redirect("/welcome.html");
     return res.redirect("/login.html");
 }
 
@@ -518,7 +519,8 @@ app.post("/auth/login", async (req, res) => {
         const now = new Date().toISOString();
         await dbUpdateUser(user.id, { lastLoginAt: now, lastSeenAt: now, loginCount: (user.loginCount || 0) + 1 });
         req.session.user = sanitizeUser({ ...user, lastLoginAt: now });
-        res.redirect("/dashboard.html");
+        const role = user.role || "neutre";
+        res.redirect(role === "neutre" ? "/welcome.html" : "/dashboard.html");
     } catch (e) {
         console.log("[AUTH] Login error :", e.message);
         res.redirect("/login.html?error=server_error");
