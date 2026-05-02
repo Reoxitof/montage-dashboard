@@ -36,6 +36,14 @@
       if (icon) icon.style.transform = collapsed ? "rotate(180deg)" : "";
       try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
     }
+    // Stub switchTab défini tôt — les clics avant le chargement complet sont mis en queue
+    var _switchTabQueue = [];
+    function switchTab(name, btn) {
+      if (typeof window._switchTabReal === "function") {
+        return window._switchTabReal(name, btn);
+      }
+      _switchTabQueue.push([name, btn]);
+    }
     // Restaurer état sidebar immédiatement
     try {
       if (localStorage.getItem("sidebarCollapsed") === "1") {
@@ -10525,7 +10533,7 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-    function switchTab(name, btn = null) {
+    function _switchTabReal(name, btn = null) {
       // Sauvegarder l'onglet actif dans localStorage
       try { localStorage.setItem("lastTab", name); } catch(e) {}
 
@@ -10618,6 +10626,13 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
+    }
+
+    // Enregistrer la vraie fonction et vider la queue des appels anticipés
+    window._switchTabReal = _switchTabReal;
+    if (window._switchTabQueue && window._switchTabQueue.length) {
+      window._switchTabQueue.forEach(function(args) { _switchTabReal(args[0], args[1]); });
+      window._switchTabQueue = [];
     }
 
 
@@ -16897,20 +16912,6 @@ window.addEventListener("DOMContentLoaded", () => {
 
 
       window.bsLoadLiveState=async function(){ try{ const res=await fetch('/state',{cache:'no-store'}); const data=await res.json(); window.bsApplyLiveState(data); } catch(e){ console.log('[DASHBOARD LIVE]',e.message); } };
-
-
-
-      window.switchTab=function(name){
-        document.querySelectorAll(".tab").forEach(function(btn){btn.classList.remove("active");});
-        document.querySelectorAll(".tab-content").forEach(function(tab){tab.classList.remove("active");});
-        var content=document.getElementById("tab-"+name);
-        if(content){content.classList.add("active");}
-        var btn=Array.from(document.querySelectorAll(".tab")).find(function(b){return(b.getAttribute("onclick")||"").includes("'"+name+"'");});
-        if(btn) btn.classList.add("active");
-        if(["goal","alertfollow","stats"].includes(name)) window.bsLoadLiveState();
-        // Scroll en haut
-        document.documentElement.scrollTop=0; document.body.scrollTop=0;
-      };
 
 
 
