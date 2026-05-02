@@ -1585,52 +1585,13 @@ function sendVoteCommand(username, message, tags = {}) {
 /* ================= MODERATION HELPERS ================= */
 
 const moderationMemory = {
-    messages: {},
     logs: state.moderationLogs || []
 };
 
-function normalizeTextHard(input) {
-    let text = String(input || "").toLowerCase();
-    text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const leet = { "0":"o", "1":"i", "!":"i", "|":"i", "3":"e", "4":"a", "@":"a", "5":"s", "$":"s", "7":"t", "+":"t", "8":"b", "9":"g" };
-    text = text.replace(/[01345789!|@+$]/g, c => leet[c] || c);
-    text = text.replace(/[^a-z0-9]/g, "");
-    text = text.replace(/(.)\1{2,}/g, "$1$1");
-    return text;
-}
+state.moderationWarnings = state.moderationWarnings || {};
+state.moderationLogs = state.moderationLogs || [];
+moderationMemory.logs = state.moderationLogs;
 
-function normalizeTextSoft(input) {
-    return String(input || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-}
-
-function normalizeModeration() {
-    const defaults = {
-        enabled: true,
-        antiBypass: true,
-        blockLinks: true,
-        blockCaps: true,
-        maxCapsPercent: 70,
-        spamLimit: 5,
-        spamWindowSeconds: 8,
-        deleteMessage: true,
-        exemptMods: true,
-        warnOnlyFirstOffense: true,
-        warningResetHours: 24,
-        timeoutSteps: [30, 120, 600],
-        banAtWarnings: 4,
-        bannedWords: []
-    };
-    state.moderation = Object.assign({}, defaults, state.moderation || {});
-    if (!Array.isArray(state.moderation.bannedWords)) state.moderation.bannedWords = [];
-    if (!Array.isArray(state.moderation.timeoutSteps)) {
-        state.moderation.timeoutSteps = String(state.moderation.timeoutSteps || "30,120,600").split(/[,\n]/).map(x => Math.max(1, parseInt(x) || 0)).filter(Boolean);
-    }
-    if (!state.moderation.timeoutSteps.length) state.moderation.timeoutSteps = [30, 120, 600];
-    state.moderationWarnings = state.moderationWarnings || {};
-    state.moderationLogs = state.moderationLogs || [];
-    moderationMemory.logs = state.moderationLogs;
-    return state.moderation;
-}
 
 function addModerationLog(username, reason, action, message = "", warns = null) {
     const entry = { time: new Date().toISOString(), username, reason, action, warns, message: String(message).slice(0, 220) };
@@ -1641,111 +1602,6 @@ function addModerationLog(username, reason, action, message = "", warns = null) 
     io.emit("moderationLog", entry);
     savePersistentState();
     console.log("[MODERATION]", username, reason, action);
-}
-
-function hasLink(message) {
-    return /(https?:\/\/|www\.|discord\.gg\/|\b[a-z0-9-]+\.(com|fr|net|gg|io|org|tv)\b)/i.test(message);
-}
-
-function capsPercent(message) {
-    const letters = message.replace(/[^a-zA-ZÀ-ÿ]/g, "");
-    if (letters.length < 8) return 0;
-    const caps = letters.replace(/[^A-ZÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ]/g, "").length;
-    return Math.round((caps / letters.length) * 100);
-}
-
-function findBannedWord(message, bannedWords, antiBypass) {
-    const softMessage = normalizeTextSoft(message);
-    const hardMessage = normalizeTextHard(message);
-    for (const raw of bannedWords || []) {
-        const word = String(raw || "").trim();
-        if (!word) continue;
-        const softWord = normalizeTextSoft(word);
-        if (softWord && softMessage.includes(softWord)) return word;
-        if (antiBypass) {
-            const hardWord = normalizeTextHard(word);
-            if (hardWord && hardMessage.includes(hardWord)) return word;
-        }
-    }
-    return null;
-}
-
-function getWarningRecord(username) {
-    const m = normalizeModeration();
-    const key = String(username).toLowerCase();
-    const now = Date.now();
-    const resetMs = Number(m.warningResetHours || 24) * 3600000;
-    let rec = state.moderationWarnings[key] || { count: 0, last: 0, reasons: [] };
-    if (rec.last && now - rec.last > resetMs) rec = { count: 0, last: 0, reasons: [] };
-    return { key, rec };
-}
-
-function addWarning(username, reason) {
-    const { key, rec } = getWarningRecord(username);
-    rec.count = Number(rec.count || 0) + 1;
-    rec.last = Date.now();
-    rec.reasons = Array.isArray(rec.reasons) ? rec.reasons : [];
-    rec.reasons.unshift({ time: new Date().toISOString(), reason });
-    rec.reasons = rec.reasons.slice(0, 10);
-    state.moderationWarnings[key] = rec;
-    return rec;
-}
-
-function detectModerationViolation(username, message, tags) {
-    const m = normalizeModeration();
-    if (!m.enabled) return null;
-    if (m.exemptMods && userIsAllowed(tags, username)) return null;
-
-    const banned = findBannedWord(message, m.bannedWords, m.antiBypass);
-    if (banned) return { reason: "mot interdit", details: banned };
-
-    if (m.blockLinks && hasLink(message)) return { reason: "lien interdit" };
-
-    if (m.blockCaps && capsPercent(message) >= Number(m.maxCapsPercent || 70)) return { reason: "majuscules abusives" };
-
-    const now = Date.now();
-    const key = String(username).toLowerCase();
-    const windowMs = Number(m.spamWindowSeconds || 8) * 1000;
-    moderationMemory.messages[key] = (moderationMemory.messages[key] || []).filter(t => now - t < windowMs);
-    moderationMemory.messages[key].push(now);
-    if (moderationMemory.messages[key].length > Number(m.spamLimit || 5)) return { reason: "spam" };
-
-    return null;
-}
-
-async function applyModeration(channel, tags, username, message, violation) {
-    const m = normalizeModeration();
-    const safeName = tags.username || username;
-    const rec = addWarning(safeName, violation.reason + (violation.details ? " : " + violation.details : ""));
-    const warns = rec.count;
-
-    try {
-        if (m.deleteMessage && tags.id && typeof twitchClient.deletemessage === "function") {
-            await twitchClient.deletemessage(channel, tags.id).catch(() => {});
-        }
-
-        if (m.banAtWarnings > 0 && warns >= Number(m.banAtWarnings)) {
-            await twitchClient.ban(channel, safeName, violation.reason);
-            twitchClient.say(channel, "⛔ @" + username + " banni : trop d'avertissements (" + warns + ")").catch(() => {});
-            addModerationLog(username, violation.reason, "ban auto", message, warns);
-            return;
-        }
-
-        if (m.warnOnlyFirstOffense && warns === 1) {
-            twitchClient.say(channel, "⚠️ @" + username + " avertissement 1/" + m.banAtWarnings + " : " + violation.reason).catch(() => {});
-            addModerationLog(username, violation.reason, "warn auto", message, warns);
-            return;
-        }
-
-        const stepIndex = Math.max(0, warns - (m.warnOnlyFirstOffense ? 2 : 1));
-        const timeout = Number(m.timeoutSteps[Math.min(stepIndex, m.timeoutSteps.length - 1)] || 30);
-        await twitchClient.timeout(channel, safeName, timeout, violation.reason);
-        twitchClient.say(channel, "⚠️ @" + username + " timeout " + timeout + "s — warn " + warns + "/" + m.banAtWarnings + " : " + violation.reason).catch(() => {});
-        addModerationLog(username, violation.reason, "timeout auto " + timeout + "s", message, warns);
-    } catch (e) {
-        addModerationLog(username, violation.reason, "échec action Twitch", message, warns);
-        console.log("[MODERATION] Action impossible :", e.message);
-    }
 }
 
 /* ================= MINI-GAMES ================= */
@@ -2360,37 +2216,6 @@ app.get("/screen/:type", (req, res) => {
 
 /* ================= ROUTES — MODERATION ================= */
 
-app.get("/moderation", (req, res) => {
-    res.json(normalizeModeration());
-});
-
-app.post("/moderation", (req, res) => {
-    const body = req.body || {};
-    const current = normalizeModeration();
-    state.moderation = {
-        enabled: body.enabled === true || body.enabled === "true",
-        antiBypass: body.antiBypass !== false && body.antiBypass !== "false",
-        blockLinks: body.blockLinks === true || body.blockLinks === "true",
-        blockCaps: body.blockCaps === true || body.blockCaps === "true",
-        maxCapsPercent: Math.max(1, Math.min(100, parseInt(body.maxCapsPercent) || current.maxCapsPercent || 70)),
-        spamLimit: Math.max(2, parseInt(body.spamLimit) || current.spamLimit || 5),
-        spamWindowSeconds: Math.max(2, parseInt(body.spamWindowSeconds) || current.spamWindowSeconds || 8),
-        deleteMessage: body.deleteMessage === true || body.deleteMessage === "true",
-        exemptMods: body.exemptMods !== false && body.exemptMods !== "false",
-        warnOnlyFirstOffense: body.warnOnlyFirstOffense !== false && body.warnOnlyFirstOffense !== "false",
-        warningResetHours: Math.max(1, parseInt(body.warningResetHours) || current.warningResetHours || 24),
-        timeoutSteps: Array.isArray(body.timeoutSteps)
-            ? body.timeoutSteps.map(x => Math.max(1, parseInt(x) || 0)).filter(Boolean)
-            : String(body.timeoutSteps || "30,120,600").split(/[,\n]/).map(x => Math.max(1, parseInt(x) || 0)).filter(Boolean),
-        banAtWarnings: Math.max(0, parseInt(body.banAtWarnings) || current.banAtWarnings || 4),
-        bannedWords: Array.isArray(body.bannedWords)
-            ? body.bannedWords.map(w => String(w).trim()).filter(Boolean)
-            : String(body.bannedWords || "").split(/[\n,]/).map(w => w.trim()).filter(Boolean)
-    };
-    savePersistentState();
-    res.json(state.moderation);
-});
-
 app.get("/moderation/logs", (req, res) => {
     res.json(moderationMemory.logs);
 });
@@ -2409,7 +2234,7 @@ app.delete("/moderation/warnings/:username", (req, res) => {
 
 app.post("/moderation/timeout", async (req, res) => {
     const username = String(req.body.username || "").replace(/^@/, "").trim();
-    const seconds = Math.max(1, parseInt(req.body.seconds) || (normalizeModeration().timeoutSteps?.[0] || 30));
+    const seconds = Math.max(1, parseInt(req.body.seconds) || 30);
     const reason = req.body.reason || "modération dashboard";
     if (!username) return res.status(400).json({ error: "username requis" });
 
@@ -2759,12 +2584,6 @@ twitchClient.on("message", (channel, tags, message, self) => {
 
     console.log("[CHAT]", username, ":", msg);
 
-    const moderationViolation = detectModerationViolation(username, msg, tags);
-    if (moderationViolation) {
-        applyModeration(channel, tags, username, msg, moderationViolation);
-        return;
-    }
-
     // Émettre + sauvegarder le message chat vers overlay/dashboard
     const liveChatMessage = {
         id: tags.id || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
@@ -2955,22 +2774,6 @@ async function fetchViewerCount() {
 }
 
 /* ================= START ================= */
-
-
-/* ================= MODERATION BANNED WORDS API ================= */
-
-app.post("/moderation/bannedWords", (req, res) => {
-    normalizeModeration();
-    const words = Array.isArray(req.body.words)
-        ? req.body.words.map(w => String(w).trim()).filter(Boolean)
-        : [];
-
-    state.moderation.bannedWords = words;
-    savePersistentState();
-    io.emit("moderationUpdated", state.moderation);
-    res.json({ success: true, bannedWords: words });
-});
-
 
 
 /* ================= TWITCH API — APP TOKEN ================= */
