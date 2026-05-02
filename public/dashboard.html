@@ -36,13 +36,14 @@
       if (icon) icon.style.transform = collapsed ? "rotate(180deg)" : "";
       try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
     }
-    // Stub switchTab défini tôt — les clics avant le chargement complet sont mis en queue
-    var _switchTabQueue = [];
+    // Stub switchTab défini tôt — version minimale fonctionnelle immédiatement
     function switchTab(name, btn) {
-      if (typeof window._switchTabReal === "function") {
-        return window._switchTabReal(name, btn);
-      }
-      _switchTabQueue.push([name, btn]);
+      document.querySelectorAll(".tab").forEach(function(t){ t.classList.remove("active"); });
+      document.querySelectorAll(".tab-content").forEach(function(t){ t.classList.remove("active"); t.style.display = "none"; });
+      var content = document.getElementById("tab-" + name);
+      if (content) { content.classList.add("active"); content.style.display = "block"; }
+      var activeBtn = btn || document.querySelector(".tab[onclick*=\"'"+name+"'\"]");
+      if (activeBtn) activeBtn.classList.add("active");
     }
     // Restaurer état sidebar immédiatement
     try {
@@ -10533,7 +10534,7 @@ body[data-user-role="modo"] .admin-only-action {
 
 
 
-    function _switchTabReal(name, btn = null) {
+    function switchTab(name, btn = null) {
       // Sauvegarder l'onglet actif dans localStorage
       try { localStorage.setItem("lastTab", name); } catch(e) {}
 
@@ -10624,15 +10625,6 @@ body[data-user-role="modo"] .admin-only-action {
       if (name === "scenes" && typeof loadOBSStatus === "function") loadOBSStatus();
       if (name === "scenes" && typeof loadTwitchChannelInfo === "function") loadTwitchChannelInfo();
 
-
-
-    }
-
-    // Enregistrer la vraie fonction et vider la queue des appels anticipés
-    window._switchTabReal = _switchTabReal;
-    if (window._switchTabQueue && window._switchTabQueue.length) {
-      window._switchTabQueue.forEach(function(args) { _switchTabReal(args[0], args[1]); });
-      window._switchTabQueue = [];
     }
 
 
