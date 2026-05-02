@@ -19738,7 +19738,8 @@ function _installSwitchTabPatch() {
 }
 _installSwitchTabPatch();
 </script>
-<scriFORCE INIT TAB ══ */
+<script>
+/* ══ FORCE INIT TAB ══ */
 function _scrollTop() {
   window.scrollTo({ top: 0, behavior: "instant" });
   document.documentElement.scrollTop = 0;
@@ -19909,12 +19910,15 @@ async function saveProfileTexts() {
 
 // Load profiles when overlay tab is opened
 document.addEventListener("DOMContentLoaded", () => {
-  // Hook into switchTab to load profiles lazily
-  const origSwitch = window.switchTab;
-  window.switchTab = function(name, btn) {
-    if (name === "overlay") loadOverlayProfiles();
-    return origSwitch(name, btn);
-  };
+  function _patchOverlay() {
+    if (typeof window.switchTab !== "function") { setTimeout(_patchOverlay, 100); return; }
+    const origSwitch = window.switchTab;
+    window.switchTab = function(name, btn) {
+      if (name === "overlay") loadOverlayProfiles();
+      return origSwitch(name, btn);
+    };
+  }
+  _patchOverlay();
 });
 </script>
 <!-- Bouton toggle sidebar — en dehors de tout contexte de positionnement -->
