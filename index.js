@@ -1,4 +1,4 @@
-const { spawn } = require("child_process");
+﻿const { spawn } = require("child_process");
 const express = require("express");
 const path = require("path");
 const http = require("http");
@@ -252,6 +252,18 @@ async function initDb() {
             "twitchToken" TEXT
         )
     `);
+    // Table tokens de session (pour FiveM / clients sans cookies)
+    await pgPool.query(`
+        CREATE TABLE IF NOT EXISTS session_tokens (
+            token TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            expires_at TIMESTAMPTZ NOT NULL,
+            last_used_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+    // Nettoyage des tokens expirés au démarrage
+    await pgPool.query(`DELETE FROM session_tokens WHERE expires_at < NOW()`).catch(() => {});
     console.log("[AUTH] PostgreSQL prêt");
 }
 
@@ -345,6 +357,72 @@ async function loadSavedProfile() {
 }
 // loadSavedProfile() est appelé dans start() async
 
+
+/* ================= TOKEN AUTH (FiveM / sans cookies) ================= */
+
+const TOKEN_TTL_DAYS = 30;
+
+async function createSessionToken(userId) {
+    const token = crypto.randomBytes(48).toString("hex");
+    const expiresAt = new Date(Date.now() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+    await pgPool.query(
+        `INSERT INTO session_tokens (token, user_id, expires_at) VALUES ($1, $2, $3)`,
+        [token, userId, expiresAt]
+    );
+    return token;
+}
+
+async function validateSessionToken(token) {
+    if (!token || typeof token !== "string" || token.length < 10) return null;
+    try {
+        const res = await pgPool.query(
+            `SELECT st.token, st.user_id, st.expires_at, u.*
+             FROM session_tokens st
+             JOIN users u ON u.id = st.user_id
+             WHERE st.token = $1 AND st.expires_at > NOW()`,
+            [token]
+        );
+        if (!res.rows.length) return null;
+        const row = res.rows[0];
+        // Mise à jour last_used_at (fire-and-forget)
+        pgPool.query(`UPDATE session_tokens SET last_used_at = NOW() WHERE token = $1`, [token]).catch(() => {});
+        return row;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function revokeSessionToken(token) {
+    await pgPool.query(`DELETE FROM session_tokens WHERE token = $1`, [token]).catch(() => {});
+}
+
+// Nettoyage tokens expirés toutes les heures
+setInterval(() => {
+    pgPool.query(`DELETE FROM session_tokens WHERE expires_at < NOW()`).catch(() => {});
+}, 60 * 60 * 1000);
+
+/**
+ * Middleware : accepte session cookie OU Bearer token OU ?token= dans l'URL.
+ * Remplit req.session.user si token valide.
+ */
+async function resolveAuthFromToken(req, res, next) {
+    // Déjà authentifié via session cookie
+    if (req.session?.user) return next();
+
+    const authHeader = req.headers["authorization"] || "";
+    const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    const queryToken = req.query.token ? String(req.query.token).trim() : null;
+    const token = bearerToken || queryToken;
+
+    if (!token) return next();
+
+    const user = await validateSessionToken(token);
+    if (user) {
+        req.session.user = sanitizeUser(user);
+        req.tokenAuth = true; // flag pour savoir qu'on est passé par token
+    }
+    next();
+}
 
 function sanitizeUser(user) {
     if (!user) return null;
@@ -440,6 +518,9 @@ ${error}
 
 app.use(express.urlencoded({ extended: true }));
 
+// Résolution auth par token Bearer / ?token= (avant tous les middlewares de protection)
+app.use(resolveAuthFromToken);
+
 /* AUTH STATIC FINAL + ROLE NEUTRE */
 app.get(["/login.html", "/login"], (req, res) => {
     console.log("[AUTH] LOGIN STATIC FILE SERVED");
@@ -473,20 +554,45 @@ app.get(["/register.html", "/register"], (req, res) => {
 
 app.post("/auth/register", async (req, res) => {
     try {
-        if (config.localAuth?.allowRegister === false) return res.redirect("/login.html?error=register_disabled");
+        if (config.localAuth?.allowRegister === false) {
+            if (req.headers["accept"]?.includes("application/json") || req.headers["x-requested-with"] === "fetch") {
+                return res.status(403).json({ error: "register_disabled" });
+            }
+            return res.redirect("/login.html?error=register_disabled");
+        }
 
         const username = String(req.body.username || "").toLowerCase().trim();
         const email = String(req.body.email || "").toLowerCase().trim() || null;
         const password = String(req.body.password || "");
 
-        if (!/^[a-z0-9_]{3,32}$/.test(username)) return res.redirect("/register.html?error=pseudo_invalide");
-        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.redirect("/register.html?error=email_invalide");
-        if (!email) return res.redirect("/register.html?error=email_requis");
-        if (password.length < 8) return res.redirect("/register.html?error=mot_de_passe_trop_court");
-        if (await dbGetUser(username)) return res.redirect("/register.html?error=compte_existe");
+        const isJsonRequest = req.headers["accept"]?.includes("application/json") || req.headers["x-requested-with"] === "fetch";
+
+        if (!/^[a-z0-9_]{3,32}$/.test(username)) {
+            if (isJsonRequest) return res.status(400).json({ error: "pseudo_invalide" });
+            return res.redirect("/register.html?error=pseudo_invalide");
+        }
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            if (isJsonRequest) return res.status(400).json({ error: "email_invalide" });
+            return res.redirect("/register.html?error=email_invalide");
+        }
+        if (!email) {
+            if (isJsonRequest) return res.status(400).json({ error: "email_requis" });
+            return res.redirect("/register.html?error=email_requis");
+        }
+        if (password.length < 8) {
+            if (isJsonRequest) return res.status(400).json({ error: "mot_de_passe_trop_court" });
+            return res.redirect("/register.html?error=mot_de_passe_trop_court");
+        }
+        if (await dbGetUser(username)) {
+            if (isJsonRequest) return res.status(409).json({ error: "compte_existe" });
+            return res.redirect("/register.html?error=compte_existe");
+        }
         if (email) {
             const existing = await dbRow("SELECT id FROM users WHERE email = $1", [email]);
-            if (existing) return res.redirect("/register.html?error=email_existe");
+            if (existing) {
+                if (isJsonRequest) return res.status(409).json({ error: "email_existe" });
+                return res.redirect("/register.html?error=email_existe");
+            }
         }
 
         const isFirst = (await dbCountUsers()) === 0;
@@ -506,10 +612,19 @@ app.post("/auth/register", async (req, res) => {
         };
         await dbCreateUser(user);
         req.session.user = sanitizeUser(user);
+
+        if (isJsonRequest) {
+            const token = await createSessionToken(user.id);
+            return res.json({ success: true, token, user: sanitizeUser(user) });
+        }
+
         const returnTo = req.body.returnTo || req.query.returnTo || "/dashboard.html";
         res.redirect(returnTo.startsWith("/") ? returnTo : "/dashboard.html");
     } catch (e) {
         console.log("[AUTH] Register error :", e.message);
+        if (req.headers["accept"]?.includes("application/json") || req.headers["x-requested-with"] === "fetch") {
+            return res.status(500).json({ error: "server_error" });
+        }
         res.redirect("/register.html?error=server_error");
     }
 });
@@ -517,21 +632,33 @@ app.post("/auth/login", async (req, res) => {
     try {
         const identifier = String(req.body.username || "").toLowerCase().trim();
         const password = String(req.body.password || "");
+        const isJsonRequest = req.headers["accept"]?.includes("application/json") || req.headers["x-requested-with"] === "fetch";
+
         // Support login by username or email
         let user = await dbGetUser(identifier);
         if (!user && identifier.includes("@")) {
             user = await dbRow("SELECT * FROM users WHERE email = $1", [identifier]);
         }
         if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+            if (isJsonRequest) return res.status(401).json({ error: "identifiants_invalides" });
             return res.redirect("/login.html?error=identifiants_invalides");
         }
         const now = new Date().toISOString();
         await dbUpdateUser(user.id, { lastLoginAt: now, lastSeenAt: now, loginCount: (user.loginCount || 0) + 1 });
         req.session.user = sanitizeUser({ ...user, lastLoginAt: now });
+
+        if (isJsonRequest) {
+            const token = await createSessionToken(user.id);
+            return res.json({ success: true, token, user: sanitizeUser({ ...user, lastLoginAt: now }) });
+        }
+
         const role = user.role || "neutre";
         res.redirect(role === "neutre" ? "/welcome.html" : "/dashboard.html");
     } catch (e) {
         console.log("[AUTH] Login error :", e.message);
+        if (req.headers["accept"]?.includes("application/json") || req.headers["x-requested-with"] === "fetch") {
+            return res.status(500).json({ error: "server_error" });
+        }
         res.redirect("/login.html?error=server_error");
     }
 });
@@ -550,8 +677,26 @@ app.get("/auth/me", async (req, res) => {
     }
     res.json({ user: req.session?.user || null });
 });
-app.post("/auth/logout", (req, res) => {
+app.post("/auth/logout", async (req, res) => {
+    // Révoquer le token Bearer si présent
+    const authHeader = req.headers["authorization"] || "";
+    const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+    const queryToken = req.query.token ? String(req.query.token).trim() : null;
+    const token = bearerToken || queryToken;
+    if (token) await revokeSessionToken(token);
+
     req.session.destroy(() => res.json({ success: true }));
+});
+
+// Génère un token depuis une session cookie existante (pour les clients qui veulent passer en token)
+app.post("/auth/token", async (req, res) => {
+    if (!req.session?.user?.id) return res.status(401).json({ error: "login_required" });
+    try {
+        const token = await createSessionToken(req.session.user.id);
+        res.json({ success: true, token, user: req.session.user });
+    } catch (e) {
+        res.status(500).json({ error: "token_creation_failed" });
+    }
 });
 
 app.post("/auth/users/:id/role", requireAdmin, async (req, res) => {
@@ -1849,1145 +1994,208 @@ app.get("/fivem/status", async (req, res) => {
     }
 });
 
-/* ================= ROUTES — STATE ================= */
+/* ================= ROUTES — PROFILS INTÉRIMAIRES ================= */
 
-app.get("/state", (req, res) => {
-    // Ne pas renvoyer une alerte trop vieille (évite qu'elle reste sur rechargement)
-    const alertAge = state.alert?.time ? Date.now() - new Date(state.alert.time).getTime() : Infinity;
-    const safeState = { ...state, alert: alertAge < 7000 ? state.alert : null };
-    res.json(safeState);
-});
+// Middleware : accepte les requêtes du bot Discord via token interne
+function requireBotOrModOrAdmin(req, res, next) {
+    const botToken = req.headers["x-bot-token"] || String(req.headers["authorization"] || "").replace("Bearer ", "");
+    if (botToken && process.env.BOT_INTERNAL_TOKEN && botToken === process.env.BOT_INTERNAL_TOKEN) return next();
+    return requireModOrAdmin(req, res, next);
+}
 
-/* ================= ROUTES — TEST ALERTS ================= */
-
-app.get("/test/follow", (req, res) => {
-    sendAlert("follower-latest", "Reoxitof");
-    res.send("follow test");
-});
-app.get("/test/sub", (req, res) => {
-    sendAlert("subscriber-latest", "Reoxitof", "1 mois");
-    res.send("sub test");
-});
-app.get("/test/tip", (req, res) => {
-    sendAlert("tip-latest", "Reoxitof", "5€");
-    res.send("tip test");
-});
-app.get("/test/cheer", (req, res) => {
-    sendAlert("cheer-latest", "Reoxitof", "100 bits");
-    res.send("cheer test");
-});
-app.get("/test/raid", (req, res) => {
-    sendAlert("raid-latest", "Reoxitof", "10 viewers");
-    res.send("raid test");
-});
-
-app.get("/test/custom", (req, res) => {
-    const typeMap = {
-        follow: "follower-latest", sub: "subscriber-latest",
-        tip: "tip-latest", cheer: "cheer-latest", raid: "raid-latest"
-    };
-    const alertType = typeMap[req.query.type] || "follower-latest";
-    const name = req.query.name || "Viewer";
-    const extra = req.query.extra || "";
-    sendAlert(alertType, name, extra);
-    res.send("custom test: " + alertType);
-});
-
-/* ================= ROUTES — SUB GOAL ================= */
-
-app.get("/subgoal", (req, res) => res.json(state.subGoal));
-
-app.get("/subgoal/set/:current/:target", (req, res) => {
-    state.subGoal.current = parseInt(req.params.current) || 0;
-    state.subGoal.target = parseInt(req.params.target) || 50;
-    io.emit("subGoal", state.subGoal);
-    savePersistentState();
-    res.json(state.subGoal);
-});
-
-app.get("/subgoal/add/:amount", (req, res) => {
-    state.subGoal.current += parseInt(req.params.amount) || 1;
-    if (state.subGoal.current > state.subGoal.target) state.subGoal.current = state.subGoal.target;
-    io.emit("subGoal", state.subGoal);
-    savePersistentState();
-    res.json(state.subGoal);
-});
-
-app.get("/subgoal/reset", (req, res) => {
-    state.subGoal.current = 0;
-    io.emit("subGoal", state.subGoal);
-    savePersistentState();
-    res.json(state.subGoal);
-});
-
-/* ================= ROUTES — VOTE ================= */
-
-app.get("/vote/state", (req, res) => {
-    res.json({
-        visible: voteState.visible, active: voteState.active, finished: voteState.finished,
-        target: voteState.target, jailVotes: voteState.jailVotes, banVotes: voteState.banVotes,
-        freeVotes: voteState.freeVotes, timeLeft: voteState.timeLeft
-    });
-});
-
-app.get("/vote/show", (req, res) => {
-    voteState.visible = true; voteState.active = false; voteState.finished = false;
-    voteState.jailVotes = 0; voteState.banVotes = 0; voteState.freeVotes = 0; voteState.voters = {};
-    voteState.target = ""; voteState.timeLeft = 0;
-    if (voteState.timer) clearInterval(voteState.timer);
-    res.json({ ok: true });
-});
-
-app.get("/vote/hide", (req, res) => {
-    voteState.visible = false; voteState.active = false;
-    if (voteState.timer) clearInterval(voteState.timer);
-    res.json({ ok: true });
-});
-
-app.get("/vote/start", (req, res) => {
-    const target = req.query.target || "Joueur";
-    const duration = parseInt(req.query.duration) || 60;
-    voteState.visible = true; voteState.active = true; voteState.finished = false;
-    voteState.target = target; voteState.jailVotes = 0; voteState.banVotes = 0; voteState.freeVotes = 0;
-    voteState.voters = {}; voteState.timeLeft = duration;
-    if (voteState.timer) clearInterval(voteState.timer);
-    voteState.timer = setInterval(() => {
-        voteState.timeLeft--;
-        if (voteState.timeLeft <= 0) {
-            voteState.active = false; voteState.finished = true;
-            clearInterval(voteState.timer);
-        }
-    }, 1000);
-    res.json({ ok: true });
-});
-
-app.get("/vote/stop", (req, res) => {
-    voteState.active = false; voteState.finished = true;
-    if (voteState.timer) clearInterval(voteState.timer);
-    res.json({ ok: true });
-});
-
-/* ================= ROUTES — POLL (multi-options) ================= */
-
-app.get("/poll/state", (req, res) => {
-    const voteCounts = {};
-    pollState.options.forEach(opt => { voteCounts[opt] = pollState.votes[opt] || 0; });
-    res.json({
-        visible: pollState.visible, active: pollState.active, finished: pollState.finished,
-        question: pollState.question, options: pollState.options,
-        votes: voteCounts, timeLeft: pollState.timeLeft
-    });
-});
-
-app.get("/poll/start", (req, res) => {
-    const question = req.query.question || "Sondage";
-    const options = (req.query.options || "Option A,Option B").split(",").map(s => s.trim()).filter(Boolean);
-    const duration = parseInt(req.query.duration) || 60;
-
-    pollState.visible = true; pollState.active = true; pollState.finished = false;
-    pollState.question = question; pollState.options = options;
-    pollState.votes = {}; pollState.voters = {}; pollState.timeLeft = duration;
-    options.forEach(opt => { pollState.votes[opt] = 0; });
-
-    if (pollState.timer) clearInterval(pollState.timer);
-    pollState.timer = setInterval(() => {
-        pollState.timeLeft--;
-        if (pollState.timeLeft <= 0) {
-            pollState.active = false; pollState.finished = true;
-            clearInterval(pollState.timer);
-        }
-    }, 1000);
-    io.emit("pollUpdate", pollState);
-    res.json({ ok: true });
-});
-
-app.get("/poll/stop", (req, res) => {
-    pollState.active = false; pollState.finished = true;
-    if (pollState.timer) clearInterval(pollState.timer);
-    io.emit("pollUpdate", pollState);
-    res.json({ ok: true });
-});
-
-app.get("/poll/hide", (req, res) => {
-    pollState.visible = false; pollState.active = false;
-    if (pollState.timer) clearInterval(pollState.timer);
-    io.emit("pollUpdate", pollState);
-    res.json({ ok: true });
-});
-
-/* ================= ROUTES — HIGHLIGHT ================= */
-
-app.get("/highlight/show", (req, res) => {
-    highlightState.visible = true;
-    highlightState.username = req.query.username || "Viewer";
-    highlightState.message = req.query.message || "Message";
-    highlightState.color = req.query.color || "#9b59b6";
-    io.emit("highlight", highlightState);
-    // Auto-hide après 8s
-    setTimeout(() => {
-        highlightState.visible = false;
-        io.emit("highlight", highlightState);
-    }, 8000);
-    res.json({ ok: true });
-});
-
-app.get("/highlight/hide", (req, res) => {
-    highlightState.visible = false;
-    io.emit("highlight", highlightState);
-    res.json({ ok: true });
-});
-
-/* ================= ROUTES — THEME ================= */
-
-app.get("/theme", (req, res) => res.json(state.theme));
-
-app.post("/theme", (req, res) => {
-    const t = req.body;
-    if (t.primary) state.theme.primary = t.primary;
-    if (t.primaryDim) state.theme.primaryDim = t.primaryDim;
-    if (t.primaryBright) state.theme.primaryBright = t.primaryBright;
-    if (t.primaryGlow) state.theme.primaryGlow = t.primaryGlow;
-    if (t.accent) state.theme.accent = t.accent;
-    io.emit("themeUpdate", state.theme);
-    savePersistentState();
-    // Sauvegarder aussi dans PostgreSQL pour survivre aux redémarrages
-    pgPool.query(
-        `INSERT INTO settings (key, value) VALUES ('theme', $1) ON CONFLICT (key) DO UPDATE SET value = $1`,
-        [JSON.stringify(state.theme)]
-    ).catch(e => console.log("[THEME] Erreur sauvegarde DB :", e.message));
-    res.json(state.theme);
-});
-
-/* ================= ROUTES — ALERT MESSAGES ================= */
-
-app.get("/alert-messages", (req, res) => res.json(state.alertMessages));
-
-app.post("/alert-messages", (req, res) => {
-    const msgs = req.body;
-    Object.keys(msgs).forEach(key => {
-        if (state.alertMessages[key]) {
-            if (msgs[key].title) state.alertMessages[key].title = msgs[key].title;
-            if (msgs[key].subtitle) state.alertMessages[key].subtitle = msgs[key].subtitle;
-        }
-    });
-    io.emit("alertMessagesUpdate", state.alertMessages);
-    savePersistentState();
-    res.json(state.alertMessages);
-});
-
-/* ================= ROUTES — SCENES ================= */
-
-app.get("/scene", (req, res) => res.json({ scene: state.scene }));
-
-app.get("/scene/set/:name", (req, res) => {
-    state.scene = req.params.name;
-    io.emit("sceneChange", state.scene);
-    savePersistentState();
-    res.json({ scene: state.scene });
-});
-
-/* ================= ROUTES — BRB ================= */
-
-app.get("/brb/on", (req, res) => {
-    state.brb = true;
-    state.brbMessage = req.query.message || state.brbMessage;
-    io.emit("brbUpdate", { brb: true, message: state.brbMessage });
-    res.json({ brb: true, message: state.brbMessage });
-});
-
-app.get("/brb/off", (req, res) => {
-    state.brb = false;
-    io.emit("brbUpdate", { brb: false, message: "" });
-    res.json({ brb: false });
-});
-
-app.get("/brb/state", (req, res) => {
-    res.json({ brb: state.brb, message: state.brbMessage });
-});
-
-/* ================= ROUTES — CLIP TWITCH ================= */
-
-app.post("/clip/create", requireAdmin, async (req, res) => {
+// Initialiser la table interim_profiles si elle n'existe pas
+async function ensureInterimTable() {
     try {
-        const cfg = config.twitchApi || {};
-        const clientId = cfg.clientId;
-        // Essaie d'abord appToken (App Access Token), puis oauthToken (User Token)
-        const token = (cfg.appToken || cfg.oauthToken || "").replace(/^oauth:/, "");
-        const broadcasterId = cfg.broadcasterId;
-        if (!clientId || !token || !broadcasterId) {
-            return res.json({ success: false, error: "Twitch API non configurée (clientId, token ou broadcasterId manquant)" });
+        await pgPool.query(`CREATE TABLE IF NOT EXISTS interim_profiles (
+            id               SERIAL PRIMARY KEY,
+            discord_user_id  TEXT NOT NULL DEFAULT '',
+            discord_username TEXT NOT NULL DEFAULT '',
+            guild_id         TEXT NOT NULL DEFAULT '',
+            channel_id       TEXT NOT NULL DEFAULT '',
+            channel_name     TEXT NOT NULL DEFAULT '',
+            message_id       TEXT NOT NULL UNIQUE,
+            thread_id        TEXT,
+            nom              TEXT,
+            prenom           TEXT,
+            poste            TEXT,
+            entreprise       TEXT,
+            id_employe       TEXT,
+            perso            TEXT,
+            compte           TEXT,
+            date_debut       TEXT,
+            date_fin         TEXT,
+            salaire          TEXT,
+            adresse          TEXT,
+            telephone        TEXT,
+            email            TEXT,
+            notes            TEXT,
+            photo_url        TEXT,
+            raw_content      TEXT,
+            statut           TEXT DEFAULT 'actif',
+            created_at       TIMESTAMPTZ DEFAULT NOW(),
+            updated_at       TIMESTAMPTZ DEFAULT NOW()
+        )`);
+        for (const col of ["id_employe","perso","compte","photo_url","thread_id"]) {
+            await pgPool.query(`ALTER TABLE interim_profiles ADD COLUMN IF NOT EXISTS ${col} TEXT`).catch(() => {});
         }
+    } catch(e) { console.log("[INTERIM] ensureTable:", e.message); }
+}
+ensureInterimTable();
 
-        const r = await fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${broadcasterId}`, {
-            method: "POST",
-            headers: {
-                "Client-ID": clientId,
-                "Authorization": `Bearer ${token}`
-            }
-        });
-
-        const data = await r.json();
-        console.log("[CLIP] Réponse Twitch:", JSON.stringify(data).slice(0, 300));
-
-        if (data.data && data.data[0]) {
-            const clipId = data.data[0].id;
-            const editUrl = data.data[0].edit_url;
-            console.log("[CLIP] Créé :", clipId);
-            res.json({ success: true, clipId, editUrl, url: `https://clips.twitch.tv/${clipId}` });
-        } else {
-            const errMsg = data.message || data.error || "Erreur Twitch inconnue";
-            console.log("[CLIP] Erreur:", errMsg, "status:", data.status);
-            res.json({ success: false, error: errMsg, twitchStatus: data.status });
-        }
-    } catch (e) {
-        console.log("[CLIP] Exception:", e.message);
-        res.json({ success: false, error: e.message });
-    }
-});
-
-app.get("/clip/history", async (req, res) => {
+// POST /interim/profiles — créer ou mettre à jour (anti-doublon via message_id)
+app.post("/interim/profiles", requireBotOrModOrAdmin, async (req, res) => {
     try {
-        const cfg = config.twitchApi || {};
-        const clientId = cfg.clientId;
-        const token = (cfg.oauthToken || "").replace(/^oauth:/, "");
-        const broadcasterId = cfg.broadcasterId;
-        if (!clientId || !token || !broadcasterId) return res.json({ success: false, error: "API Twitch non configurée", clips: [] });
-        const r = await fetch(`https://api.twitch.tv/helix/clips?broadcaster_id=${broadcasterId}&first=10`, {
-            headers: { "Client-ID": clientId, "Authorization": `Bearer ${token}` }
-        });
-        const data = await r.json();
-        console.log("[CLIPS]", JSON.stringify(data).slice(0, 200));
-        if (data.error || data.status === 401) return res.json({ success: false, error: "Token Twitch expiré — mets à jour oauthToken dans config.json", clips: [] });
-        res.json({ success: true, clips: (data.data || []).map(c => ({ id: c.id, title: c.title, url: c.url, thumbnail: c.thumbnail_url, views: c.view_count, created: c.created_at })) });
-    } catch (e) {
-        console.log("[CLIPS ERROR]", e.message);
-        res.json({ success: false, error: e.message, clips: [] });
-    }
-});
-
-/* ================= ROUTES — SCREEN OVERLAY (start/pause/fin) ================= */
-
-/* ================= ROUTES — OBS PREVIEW ================= */
-
-app.get("/obs/preview", obsControlAdminOnly, async (req, res) => {
-    try {
-        const width = parseInt(req.query.width) || 640;
-        const height = parseInt(req.query.height) || 360;
-        const baseUrl = getObsBridgeUrl();
-        const token = getObsBridgeToken();
-        if (!baseUrl) return res.status(503).json({ error: "bridge_url_missing" });
-
-        const headers = {};
-        if (token) { headers["x-bridge-token"] = token; headers["authorization"] = `Bearer ${token}`; }
-
-        const r = await fetch(`${baseUrl}/preview?width=${width}&height=${height}`, { headers, signal: AbortSignal.timeout(8000) });
-        if (!r.ok) return res.status(r.status).json({ error: "bridge_error" });
-
-        const buf = await r.arrayBuffer();
-        res.set("Content-Type", "image/jpeg");
-        res.set("Cache-Control", "no-store");
-        res.send(Buffer.from(buf));
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-
-
-
-app.get("/screen/hide", (req, res) => {
-    state.screenOverlay = { active: false, type: "" };
-    io.emit("screenOverlay", state.screenOverlay);
-    console.log("[SCREEN] Masqué");
-    res.json({ ok: true });
-});
-
-app.get("/screen/:type", (req, res) => {
-    const type = req.params.type;
-    if (!["start", "pause", "fin"].includes(type)) {
-        return res.status(400).json({ error: "Type invalide. Utilise: start, pause, fin" });
-    }
-    state.screenOverlay = { active: true, type };
-    io.emit("screenOverlay", state.screenOverlay);
-    console.log("[SCREEN]", type.toUpperCase(), "affiché");
-    res.json({ ok: true, type });
-});
-
-
-/* ================= ROUTES — MODERATION ================= */
-
-app.get("/moderation/logs", (req, res) => {
-    res.json(moderationMemory.logs);
-});
-
-app.get("/moderation/warnings", (req, res) => {
-    res.json(state.moderationWarnings || {});
-});
-
-app.delete("/moderation/warnings/:username", (req, res) => {
-    const username = String(req.params.username || "").toLowerCase();
-    if (state.moderationWarnings) delete state.moderationWarnings[username];
-    addModerationLog(username, "reset warnings", "reset manuel", "", 0);
-    savePersistentState();
-    res.json({ ok: true });
-});
-
-app.post("/moderation/timeout", async (req, res) => {
-    const username = String(req.body.username || "").replace(/^@/, "").trim();
-    const seconds = Math.max(1, parseInt(req.body.seconds) || 30);
-    const reason = req.body.reason || "modération dashboard";
-    if (!username) return res.status(400).json({ error: "username requis" });
-
-    // Utiliser le token du modo connecté si disponible
-    const sessionUser = req.session?.user?.id ? dbGetUserById(req.session.user.id) : null;
-    const modoToken = sessionUser?.twitchToken;
-    const modoName = sessionUser?.username || "dashboard";
-
-    try {
-        if (modoToken) {
-            // Utiliser le token du modo — la sanction apparaît sous son nom
-            const tmi = require("tmi.js");
-            const modoClient = new tmi.Client({
-                identity: { username: modoName, password: "oauth:" + modoToken },
-                channels: [TWITCH_CHANNEL],
-                connection: { reconnect: false }
-            });
-            await modoClient.connect();
-            await modoClient.timeout(TWITCH_CHANNEL, username, seconds, reason);
-            await modoClient.disconnect();
-        } else {
-            // Fallback : utiliser le bot principal
-            await twitchClient.timeout(TWITCH_CHANNEL, username, seconds, reason);
-        }
-        addModerationLog(username, reason, "timeout " + seconds + "s par " + modoName, "");
-        res.json({ ok: true, by: modoName });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-app.post("/moderation/ban", async (req, res) => {
-    const username = String(req.body.username || "").replace(/^@/, "").trim();
-    const reason = req.body.reason || "ban dashboard";
-    if (!username) return res.status(400).json({ error: "username requis" });
-
-    // Utiliser le token du modo connecté si disponible
-    const sessionUser = req.session?.user?.id ? dbGetUserById(req.session.user.id) : null;
-    const modoToken = sessionUser?.twitchToken;
-    const modoName = sessionUser?.username || "dashboard";
-
-    try {
-        if (modoToken) {
-            const tmi = require("tmi.js");
-            const modoClient = new tmi.Client({
-                identity: { username: modoName, password: "oauth:" + modoToken },
-                channels: [TWITCH_CHANNEL],
-                connection: { reconnect: false }
-            });
-            await modoClient.connect();
-            await modoClient.ban(TWITCH_CHANNEL, username, reason);
-            await modoClient.disconnect();
-        } else {
-            await twitchClient.ban(TWITCH_CHANNEL, username, reason);
-        }
-        addModerationLog(username, reason, "ban par " + modoName, "");
-        res.json({ ok: true, by: modoName });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-/* ================= ROUTES — CUSTOM COMMANDS ================= */
-
-app.get("/commands", (req, res) => res.json(state.customCommands));
-
-app.post("/commands", (req, res) => {
-    const { command, response } = req.body;
-    if (!command || !response) return res.status(400).json({ error: "command et response requis" });
-    const cmd = command.startsWith("!") ? command.toLowerCase() : "!" + command.toLowerCase();
-    state.customCommands[cmd] = response;
-    savePersistentState();
-    res.json(state.customCommands);
-});
-
-app.delete("/commands/:cmd", (req, res) => {
-    const cmd = "!" + req.params.cmd.toLowerCase();
-    delete state.customCommands[cmd];
-    savePersistentState();
-    res.json(state.customCommands);
-});
-
-/* ================= ROUTES — STATS ================= */
-
-app.get("/stats", (req, res) => res.json(state.stats));
-
-app.get("/stats/reset", (req, res) => {
-    state.stats = {
-        follows: 0, subs: 0, tips: 0, cheers: 0, raids: 0, chatMessages: 0,
-        followsPerHour: [], subsPerHour: [], chatPerMinute: [],
-        peakViewers: 0, currentViewers: 0
-    };
-    savePersistentState();
-    res.json(state.stats);
-});
-
-/* ================= ROUTES — VIEWERS COUNT ================= */
-
-app.get("/viewers", (req, res) => {
-    res.json({ current: state.stats.currentViewers, peak: state.stats.peakViewers });
-});
-
-/* ================= ROUTES — CHATTERS LIST ================= */
-
-app.get("/chatters", async (req, res) => {
-    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) {
-        return res.json({ chatters: [], total: 0, error: "twitch_not_configured" });
-    }
-    try {
-        // /chat/chatters requiert un User Token (scope moderator:read:chatters)
-        // On utilise TOUJOURS le user OAuth token ici, jamais l'App Token
-        // Lire depuis config en live pour prendre en compte les mises à jour
-        const rawOauth = config.twitchApi?.oauthToken || TWITCH_OAUTH || "";
-        const oauth = rawOauth.replace(/^oauth:/i, "");
-        if (!oauth) {
-            return res.json({ chatters: [], total: 0, error: "oauth_token_missing" });
-        }
-        const headers = {
-            "Client-ID": TWITCH_CLIENT_ID,
-            "Authorization": `Bearer ${oauth}`
-        };
-
-        // Récupère jusqu'à 1000 chatters via Helix
-        const response = await fetch(
-            `https://api.twitch.tv/helix/chat/chatters?broadcaster_id=${TWITCH_BROADCASTER_ID}&moderator_id=${TWITCH_BROADCASTER_ID}&first=1000`,
-            { headers }
+        const b = req.body;
+        if (!b.messageId) return res.status(400).json({ error: "messageId_required" });
+        await pgPool.query(
+            `INSERT INTO interim_profiles (
+                discord_user_id,discord_username,guild_id,channel_id,channel_name,
+                message_id,thread_id,nom,prenom,poste,entreprise,id_employe,perso,compte,
+                date_debut,date_fin,salaire,adresse,telephone,email,notes,photo_url,raw_content,statut,updated_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,'actif',NOW())
+            ON CONFLICT (message_id) DO UPDATE SET
+                discord_username=EXCLUDED.discord_username,
+                thread_id  =COALESCE(EXCLUDED.thread_id,  interim_profiles.thread_id),
+                nom        =COALESCE(EXCLUDED.nom,        interim_profiles.nom),
+                prenom     =COALESCE(EXCLUDED.prenom,     interim_profiles.prenom),
+                poste      =COALESCE(EXCLUDED.poste,      interim_profiles.poste),
+                entreprise =COALESCE(EXCLUDED.entreprise, interim_profiles.entreprise),
+                id_employe =COALESCE(EXCLUDED.id_employe, interim_profiles.id_employe),
+                perso      =COALESCE(EXCLUDED.perso,      interim_profiles.perso),
+                compte     =COALESCE(EXCLUDED.compte,     interim_profiles.compte),
+                date_debut =COALESCE(EXCLUDED.date_debut, interim_profiles.date_debut),
+                date_fin   =COALESCE(EXCLUDED.date_fin,   interim_profiles.date_fin),
+                salaire    =COALESCE(EXCLUDED.salaire,    interim_profiles.salaire),
+                adresse    =COALESCE(EXCLUDED.adresse,    interim_profiles.adresse),
+                telephone  =COALESCE(EXCLUDED.telephone,  interim_profiles.telephone),
+                email      =COALESCE(EXCLUDED.email,      interim_profiles.email),
+                notes      =COALESCE(EXCLUDED.notes,      interim_profiles.notes),
+                photo_url  =COALESCE(EXCLUDED.photo_url,  interim_profiles.photo_url),
+                raw_content=EXCLUDED.raw_content,
+                updated_at =NOW()`,
+            [
+                b.discordUserId||"", b.discordUsername||"", b.guildId||"", b.channelId||"", b.channelName||"",
+                b.messageId, b.threadId||null,
+                b.nom||null, b.prenom||null, b.poste||null, b.entreprise||null,
+                b.id_employe||null, b.perso||null, b.compte||null,
+                b.date_debut||null, b.date_fin||null, b.salaire||null, b.adresse||null,
+                b.telephone||null, b.email||null, b.notes||null,
+                b.photoUrl||null, b.rawContent||null
+            ]
         );
-
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            console.log("[TWITCH API] Erreur chatters:", response.status, err.message || err.error);
-            // Si 401/403 → scope manquant, on retourne l'erreur lisible
-            return res.json({ chatters: [], total: 0, error: err.message || `twitch_${response.status}` });
-        }
-
-        const data = await response.json();
-        const chatters = (data.data || []).map(u => ({
-            user_id: u.user_id,
-            user_login: u.user_login,
-            user_name: u.user_name
-        }));
-        res.json({ chatters, total: data.total || chatters.length });
-    } catch (e) {
-        console.log("[TWITCH API] Erreur chatters :", e.message);
-        res.json({ chatters: [], total: 0, error: e.message });
-    }
-});
-
-/* ================= ROUTES — SOUND UPLOAD ================= */
-
-app.post("/sounds/upload", uploadSound.single("sound"), (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "Aucun fichier" });
-    res.json({ ok: true, filename: req.file.filename, path: "/sounds/" + req.file.filename });
-});
-
-app.get("/sounds/list", (req, res) => {
-    const dir = path.join(__dirname, "public", "sounds");
-    try {
-        const files = fs.readdirSync(dir).filter(f => !f.startsWith("."));
-        res.json(files);
-    } catch (e) {
-        res.json([]);
-    }
-});
-
-app.delete("/sounds/:filename", (req, res) => {
-    const filePath = path.join(__dirname, "public", "sounds", req.params.filename);
-    try {
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-            res.json({ ok: true });
-        } else {
-            res.status(404).json({ error: "Fichier non trouvé" });
-        }
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-
-
-/* ================= SOCKET.IO ================= */
-
-let relaySocket = null;
-
-io.on("connection", (socket) => {
-    console.log("[SOCKET] Overlay connecté :", socket.id);
-    socket.emit("state", state);
-    socket.emit("themeUpdate", state.theme);
-    socket.emit("sceneChange", state.scene);
-    socket.emit("brbUpdate", { brb: state.brb, message: state.brbMessage });
-    socket.emit("screenOverlay", state.screenOverlay);
-    socket.emit("alertMessagesUpdate", state.alertMessages);
-    if (highlightState.visible) socket.emit("highlight", highlightState);
-    if (pollState.visible) socket.emit("pollUpdate", pollState);
-
-    // ── RELAY CLIENT ──
-    socket.on("relay:register", (data) => {
-        const token = data?.token || "";
-        const expected = config.obsBridge?.token || "";
-        if (expected && token !== expected) {
-            socket.emit("relay:registered", { ok: false, message: "token invalide" });
-            return;
-        }
-        socket.join("relay-clients");
-        relaySocket = socket;
-        console.log("[RELAY] Client local connecté :", socket.id);
-        socket.emit("relay:registered", { ok: true, message: "Relay actif" });
-        io.emit("relayStatus", { connected: true });
-    });
-
-    socket.on("disconnect", () => {
-        if (relaySocket && relaySocket.id === socket.id) {
-            relaySocket = null;
-            console.log("[RELAY] Client local déconnecté");
-            io.emit("relayStatus", { connected: false });
-        }
-        console.log("[SOCKET] Overlay déconnecté :", socket.id);
-    });
-});
-
-/* ================= RELAY — forward HTTP vers bridge local ================= */
-
-app.get("/relay/status", (req, res) => {
-    res.json({ connected: !!relaySocket, socketId: relaySocket?.id || null });
-});
-
-app.post("/relay/exec", requireAdmin, (req, res) => {
-    if (!relaySocket) return res.status(503).json({ error: "relay_not_connected" });
-    const command = String(req.body.command || "");
-    const allowed = ["start_rtmp", "start_relay", "start_bridge"];
-    if (!allowed.includes(command)) return res.status(400).json({ error: "command_not_allowed" });
-    relaySocket.emit("relay:exec", { command });
-    res.json({ success: true, command });
-});
-
-app.get("/relay/hls", async (req, res) => {
-    try {
-        const file = req.query.file || "live/index.m3u8";
-        const result = await new Promise((resolve, reject) => {
-            if (!relaySocket) return reject(new Error("relay_not_connected"));
-            const timeout = setTimeout(() => reject(new Error("relay_timeout")), 8000);
-            relaySocket.emit("relay:request", {
-                path: `/${file}`,
-                query: "",
-                method: "GET",
-                headers: {},
-                body: null
-            }, (data) => { clearTimeout(timeout); resolve(data); });
-        });
-        if (!result || result.status >= 400) return res.status(result?.status || 502).end();
-        const buf = Buffer.from(result.body, "base64");
-        const ct = file.endsWith(".m3u8") ? "application/vnd.apple.mpegurl" : "video/mp2t";
-        res.set("Content-Type", ct);
-        res.set("Cache-Control", "no-store");
-        res.set("Access-Control-Allow-Origin", "*");
-        res.send(buf);
+        const r = await pgPool.query(`SELECT * FROM interim_profiles WHERE message_id = $1`, [b.messageId]);
+        res.json({ success: true, profile: r.rows[0] });
     } catch(e) {
-        res.status(503).end();
+        console.log("[INTERIM] POST error:", e.message);
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
-app.get("/relay/mjpeg", (req, res) => {
-    // Proxy du flux MJPEG depuis la machine locale via relay socket
-    if (!relaySocket) return res.status(503).json({ error: "relay_not_connected" });
-
-    res.writeHead(200, {
-        "Content-Type": "multipart/x-mixed-replace; boundary=--frame",
-        "Cache-Control": "no-store",
-        "Connection": "close"
-    });
-
-    relaySocket.emit("relay:mjpeg:start", { token: config.obsBridge?.token || "" });
-
-    const onChunk = (data) => {
-        try { res.write(Buffer.from(data, "base64")); } catch(e) {}
-    };
-
-    relaySocket.on("relay:mjpeg:chunk", onChunk);
-
-    req.on("close", () => {
-        relaySocket?.off("relay:mjpeg:chunk", onChunk);
-        relaySocket?.emit("relay:mjpeg:stop");
-    });
-});
-
-app.get("/relay/preview", async (req, res) => {
+// PATCH /interim/profiles/:id — mise à jour partielle
+app.patch("/interim/profiles/:id", requireBotOrModOrAdmin, async (req, res) => {
     try {
-        const width = parseInt(req.query.width) || 640;
-        const height = parseInt(req.query.height) || 360;
-        if (!relaySocket) return res.status(503).json({ error: "relay_not_connected" });
-
-        const result = await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error("relay_timeout")), 10000);
-            relaySocket.emit("relay:request", {
-                path: `/preview?width=${width}&height=${height}`,
-                query: "",
-                method: "GET",
-                headers: { "x-bridge-token": config.obsBridge?.token || "" },
-                body: null
-            }, (data) => {
-                clearTimeout(timeout);
-                resolve(data);
-            });
-        });
-
-        if (!result || result.status >= 400) return res.status(result?.status || 502).json({ error: "bridge_error" });
-        const buf = Buffer.from(result.body, "base64");
-        res.set("Content-Type", result.headers?.["content-type"] || "image/jpeg");
-        res.set("Cache-Control", "no-store");
-        res.send(buf);
-    } catch(e) {
-        res.status(503).json({ error: e.message });
-    }
-});
-
-/* ================= TWITCH ================= */
-
-const twitchClient = new tmi.Client({
-    connection: { reconnect: true, secure: true },
-    identity: TWITCH_OAUTH ? {
-        username: config.twitch?.botUsername || OWNER_TWITCH,
-        password: TWITCH_OAUTH.startsWith("oauth:") ? TWITCH_OAUTH : "oauth:" + TWITCH_OAUTH
-    } : undefined,
-    channels: [TWITCH_CHANNEL]
-});
-
-global.twitchClient = twitchClient;
-
-twitchClient.connect().then(() => {
-    console.log("[TWITCH] connecté au chat :", TWITCH_CHANNEL);
-}).catch((err) => {
-    console.log("[TWITCH] erreur connexion :", err);
-});
-
-twitchClient.on("message", (channel, tags, message, self) => {
-    if (self) return;
-
-    const username = tags["display-name"] || tags.username || "Viewer";
-    const msg = String(message).trim();
-    const cmd = msg.toLowerCase();
-    const args = cmd.split(" ").slice(1);
-
-    // Stats
-    state.stats.chatMessages++;
-    chatCountThisMinute++;
-
-    console.log("[CHAT]", username, ":", msg);
-
-    // Émettre + sauvegarder le message chat vers overlay/dashboard
-    const liveChatMessage = {
-        id: tags.id || (Date.now().toString(36) + Math.random().toString(36).slice(2)),
-        username,
-        message: msg,
-        color: tags.color || "#9b59b6",
-        badges: tags.badges || {},
-        isOwner: !!(tags.badges && tags.badges.broadcaster),
-        isMod: !!(tags.mod || (tags.badges && tags.badges.moderator)),
-        isSub: !!(tags.subscriber || (tags.badges && tags.badges.subscriber)),
-        time: new Date().toISOString()
-    };
-
-    if (typeof pushDashboardChatMessage === "function") {
-        pushDashboardChatMessage(liveChatMessage);
-    } else {
-        io.emit("chatMessage", liveChatMessage);
-    }
-
-    // Vote commands
-    if (cmd.startsWith("!vote") || cmd === "!jail" || cmd === "!ban" || cmd === "!free" || cmd === "!stopvote") {
-        sendVoteCommand(username, msg, tags);
-    }
-
-    // Vote intégré
-    if (cmd === "!jail" && voteState.active && !voteState.voters[username]) {
-        voteState.voters[username] = "jail"; voteState.jailVotes++;
-    }
-    if (cmd === "!ban" && voteState.active && !voteState.voters[username]) {
-        voteState.voters[username] = "ban"; voteState.banVotes++;
-    }
-    if (cmd === "!free" && voteState.active && !voteState.voters[username]) {
-        voteState.voters[username] = "free"; voteState.freeVotes++;
-    }
-    if (cmd === "!stopvote" && userIsAllowed(tags, username)) {
-        voteState.active = false; voteState.finished = true;
-        if (voteState.timer) clearInterval(voteState.timer);
-    }
-
-    // Poll votes — !1, !2, !3, etc.
-    const pollVoteMatch = cmd.match(/^!(\d+)$/);
-    if (pollVoteMatch && pollState.active) {
-        const idx = parseInt(pollVoteMatch[1]) - 1;
-        if (idx >= 0 && idx < pollState.options.length && !pollState.voters[username]) {
-            const opt = pollState.options[idx];
-            pollState.voters[username] = opt;
-            pollState.votes[opt] = (pollState.votes[opt] || 0) + 1;
+        const b = req.body;
+        const allowed = ["nom","prenom","poste","entreprise","id_employe","perso","compte",
+                         "date_debut","date_fin","salaire","adresse","telephone","email","notes","photo_url","statut"];
+        const sets = []; const params = [];
+        for (const f of allowed) {
+            if (b[f] !== undefined) { params.push(b[f]); sets.push(f + " = $" + params.length); }
         }
-    }
-
-    // Custom commands
-    const customResp = state.customCommands[cmd];
-    if (customResp) {
-        twitchClient.say(channel, customResp);
-        return;
-    }
-
-    // Mini-games
-    if (["!points", "!dice", "!roulette", "!duel", "!accept", "!decline"].includes(cmd.split(" ")[0])) {
-        handleMiniGame(username, cmd.split(" ")[0], args, twitchClient, channel);
-        return;
-    }
-
-    // Highlight (mod/owner)
-    if (cmd.startsWith("!highlight ") && userIsAllowed(tags, username)) {
-        const hlMsg = msg.substring(11).trim();
-        if (hlMsg) {
-            highlightState.visible = true;
-            highlightState.username = username;
-            highlightState.message = hlMsg;
-            highlightState.color = tags.color || "#9b59b6";
-            io.emit("highlight", highlightState);
-            setTimeout(() => {
-                highlightState.visible = false;
-                io.emit("highlight", highlightState);
-            }, 8000);
-        }
-        return;
-    }
-
-    // Poll start (mod/owner) — !poll "Question" "Opt1" "Opt2" "Opt3" 60
-    if (cmd.startsWith("!poll ") && userIsAllowed(tags, username)) {
-        const matches = msg.match(/"([^"]+)"/g);
-        if (matches && matches.length >= 3) {
-            const question = matches[0].replace(/"/g, "");
-            const options = matches.slice(1).map(m => m.replace(/"/g, ""));
-            const durationMatch = msg.match(/(\d+)\s*$/);
-            const duration = durationMatch ? parseInt(durationMatch[1]) : 60;
-
-            pollState.visible = true; pollState.active = true; pollState.finished = false;
-            pollState.question = question; pollState.options = options;
-            pollState.votes = {}; pollState.voters = {}; pollState.timeLeft = duration;
-            options.forEach(opt => { pollState.votes[opt] = 0; });
-
-            if (pollState.timer) clearInterval(pollState.timer);
-            pollState.timer = setInterval(() => {
-                pollState.timeLeft--;
-                if (pollState.timeLeft <= 0) {
-                    pollState.active = false; pollState.finished = true;
-                    clearInterval(pollState.timer);
-                }
-            }, 1000);
-            io.emit("pollUpdate", pollState);
-            twitchClient.say(channel, `📊 Sondage : ${question} — Votez avec !1, !2, !3... (${duration}s)`);
-        }
-        return;
-    }
-
-    if (cmd === "!stoppoll" && userIsAllowed(tags, username)) {
-        pollState.active = false; pollState.finished = true;
-        if (pollState.timer) clearInterval(pollState.timer);
-        io.emit("pollUpdate", pollState);
-        return;
-    }
-
-    // BRB (mod/owner)
-    if (cmd === "!brb" && userIsAllowed(tags, username)) {
-        state.brb = true;
-        io.emit("brbUpdate", { brb: true, message: state.brbMessage });
-        return;
-    }
-    if (cmd === "!back" && userIsAllowed(tags, username)) {
-        state.brb = false;
-        io.emit("brbUpdate", { brb: false, message: "" });
-        return;
-    }
-
-    // Test alerts (mod/owner)
-    if (!userIsAllowed(tags, username)) return;
-
-    if (cmd === "!test follow") sendAlert("follower-latest", username);
-    if (cmd === "!test sub") sendAlert("subscriber-latest", username, "1 mois");
-    if (cmd === "!test tip") sendAlert("tip-latest", username, "5€");
-    if (cmd === "!test cheer") sendAlert("cheer-latest", username, "100 bits");
-    if (cmd === "!test raid") sendAlert("raid-latest", username, "10 viewers");
+        if (!sets.length) return res.status(400).json({ error: "no_fields" });
+        params.push(req.params.id);
+        await pgPool.query("UPDATE interim_profiles SET " + sets.join(", ") + ", updated_at = NOW() WHERE id = $" + params.length, params);
+        const r = await pgPool.query(`SELECT * FROM interim_profiles WHERE id = $1`, [req.params.id]);
+        res.json({ success: true, profile: r.rows[0] || null });
+    } catch(e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
-/* ================= TWITCH API — FOLLOWERS + VIEWERS ================= */
-
-async function fetchFollowerCount() {
-    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return;
-
+// GET /interim/profiles/by-message/:messageId — anti-doublon
+app.get("/interim/profiles/by-message/:messageId", requireBotOrModOrAdmin, async (req, res) => {
     try {
-        const headers = getTwitchAuthHeaders();
-        const response = await fetch(
-            `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${TWITCH_BROADCASTER_ID}&first=1`,
-            { headers }
+        const r = await pgPool.query(`SELECT * FROM interim_profiles WHERE message_id = $1`, [req.params.messageId]);
+        if (!r.rows.length) return res.status(404).json({ error: "not_found" });
+        res.json({ success: true, profile: r.rows[0] });
+    } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+// GET /interim/profiles/search?q=
+app.get("/interim/profiles/search", requireModOrAdmin, async (req, res) => {
+    try {
+        const q = String(req.query.q || "").trim();
+        if (!q || q.length < 2) return res.status(400).json({ error: "query_too_short" });
+        const like = "%" + q + "%";
+        const r = await pgPool.query(
+            `SELECT * FROM interim_profiles
+             WHERE nom ILIKE $1 OR prenom ILIKE $1 OR poste ILIKE $1
+                OR entreprise ILIKE $1 OR id_employe ILIKE $1
+                OR perso ILIKE $1 OR compte ILIKE $1 OR discord_username ILIKE $1
+             ORDER BY updated_at DESC LIMIT 20`,
+            [like]
         );
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            console.log("[TWITCH API] Erreur followers:", response.status, err.message);
-            return;
-        }
-        const data = await response.json();
-        const total = data.total || 0;
-        if (state.subGoal.current !== total) {
-            state.subGoal.current = total;
-            io.emit("subGoal", state.subGoal);
-        }
-        console.log("[TWITCH API] Followers:", total);
-    } catch (e) {
-        console.log("[TWITCH API] Erreur followers :", e.message);
-    }
-}
+        res.json({ success: true, profiles: r.rows, count: r.rows.length });
+    } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
 
-async function fetchViewerCount() {
-    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return;
-
+// GET /interim/stats
+app.get("/interim/stats", requireModOrAdmin, async (req, res) => {
     try {
-        const headers = getTwitchAuthHeaders();
-        const response = await fetch(
-            `https://api.twitch.tv/helix/streams?user_id=${TWITCH_BROADCASTER_ID}`,
-            { headers }
+        const r = await pgPool.query(
+            `SELECT COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE statut='actif')      AS actifs,
+                    COUNT(*) FILTER (WHERE statut='inactif')    AS inactifs,
+                    COUNT(*) FILTER (WHERE statut='en_attente') AS en_attente,
+                    COUNT(DISTINCT channel_name)                AS canaux
+             FROM interim_profiles`
         );
-        if (!response.ok) return;
-        const data = await response.json();
-        if (data.data && data.data.length > 0) {
-            const viewers = data.data[0].viewer_count || 0;
-            state.stats.currentViewers = viewers;
-            if (viewers > state.stats.peakViewers) state.stats.peakViewers = viewers;
-            io.emit("viewerCount", { current: viewers, peak: state.stats.peakViewers });
-        } else {
-            state.stats.currentViewers = 0;
-        }
-    } catch (e) {
-        console.log("[TWITCH API] Erreur viewers :", e.message);
-    }
-}
+        res.json({ success: true, stats: r.rows[0] });
+    } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
 
-/* ================= START ================= */
-
-
-/* ================= TWITCH API — APP TOKEN ================= */
-
-let _twitchAppToken = null;
-let _twitchAppTokenExpiry = 0;
-
-async function getTwitchAppToken() {
-    if (_twitchAppToken && Date.now() < _twitchAppTokenExpiry) return _twitchAppToken;
-    if (!TWITCH_CLIENT_ID || !config.twitchApi?.clientSecret) return null;
+// GET /interim/profiles — liste
+app.get("/interim/profiles", requireModOrAdmin, async (req, res) => {
     try {
-        const r = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${config.twitchApi.clientSecret}&grant_type=client_credentials`, { method: "POST" });
-        const data = await r.json();
-        if (data.access_token) {
-            _twitchAppToken = data.access_token;
-            _twitchAppTokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
-            return _twitchAppToken;
-        }
-    } catch(e) { console.log("[TWITCH] App token error:", e.message); }
-    return null;
-}
+        const statut = req.query.statut || null;
+        const limit  = Math.min(parseInt(req.query.limit  || "50"), 200);
+        const offset = parseInt(req.query.offset || "0");
+        const params = []; let where = "WHERE 1=1";
+        if (statut) { params.push(statut); where += " AND statut = $" + params.length; }
+        params.push(limit, offset);
+        const r = await pgPool.query(
+            "SELECT * FROM interim_profiles " + where + " ORDER BY created_at DESC LIMIT $" + (params.length-1) + " OFFSET $" + params.length,
+            params
+        );
+        const cp = statut ? [statut] : []; const cw = statut ? "WHERE statut = $1" : "";
+        const cr = await pgPool.query("SELECT COUNT(*) as c FROM interim_profiles " + cw, cp);
+        res.json({ success: true, profiles: r.rows, total: parseInt(cr.rows[0]?.c || 0), limit, offset });
+    } catch(e) { res.status(500).json({ success: false, error: e.message }); }
+});
 
-function getTwitchAuthHeaders() {
-    // Utilise l'App Token si disponible, sinon le user token
-    const appToken = config.twitchApi?.appToken;
-    const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
-    const token = appToken || oauth;
-    return { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${token}` };
-}
-
-/* ================= TWITCH API — CHANNEL INFO ================= */
-
-app.get("/twitch/channel-info", requireModOrAdmin, async (req, res) => {
-    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return res.status(400).json({ error: "Twitch API non configurée (CLIENT_ID ou BROADCASTER_ID manquant)" });
-    const oauth = TWITCH_OAUTH.replace(/^oauth:/i, "");
+// GET /interim/profiles/:id
+app.get("/interim/profiles/:id", requireModOrAdmin, async (req, res) => {
     try {
-        const r = await fetch(`https://api.twitch.tv/helix/channels?broadcaster_id=${TWITCH_BROADCASTER_ID}`, {
-            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${oauth}` }
-        });
-        const data = await r.json();
-        if (!r.ok) return res.status(400).json({ error: data.message || "Erreur Twitch" });
-        res.json(data.data?.[0] || {});
-    } catch(e) { res.status(500).json({ error: e.message }); }
+        const r = await pgPool.query(`SELECT * FROM interim_profiles WHERE id = $1`, [req.params.id]);
+        if (!r.rows.length) return res.status(404).json({ error: "not_found" });
+        res.json({ success: true, profile: r.rows[0] });
+    } catch(e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
-app.get("/twitch/search-game", requireModOrAdmin, async (req, res) => {
-    const q = String(req.query.q || "").trim();
-    if (!q) return res.json({ games: [] });
-    if (!TWITCH_CLIENT_ID) return res.status(400).json({ error: "Twitch API non configurée" });
-    const headers = getTwitchAuthHeaders();
+// PATCH /interim/profiles/:id/statut
+app.patch("/interim/profiles/:id/statut", requireModOrAdmin, async (req, res) => {
     try {
-        const r2 = await fetch(`https://api.twitch.tv/helix/search/categories?query=${encodeURIComponent(q)}&first=8`, { headers });
-        const search = await r2.json();
-        console.log("[TWITCH SEARCH] status:", r2.status, "data:", JSON.stringify(search).slice(0, 200));
-        if (!r2.ok) return res.status(400).json({ error: search.message || "Token invalide ou expiré" });
-        const games = (search.data || []).slice(0, 8);
-        res.json({ games });
-    } catch(e) {
-        console.log("[TWITCH SEARCH] error:", e.message);
-        res.status(500).json({ error: e.message });
-    }
+        const statut = String(req.body.statut || "").toLowerCase();
+        if (!["actif","inactif","en_attente"].includes(statut)) return res.status(400).json({ error: "statut_invalide" });
+        await pgPool.query(`UPDATE interim_profiles SET statut = $1, updated_at = NOW() WHERE id = $2`, [statut, req.params.id]);
+        res.json({ success: true, statut });
+    } catch(e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
-app.post("/twitch/update-channel", requireModOrAdmin, async (req, res) => {
-    if (!TWITCH_CLIENT_ID || !TWITCH_BROADCASTER_ID) return res.status(400).json({ error: "Twitch API non configurée" });
-    const { title, gameId, language } = req.body;
-    if (!title) return res.status(400).json({ error: "Titre requis" });
-
-    // Utilise le user token stocké (doit avoir channel:manage:broadcast)
-    const userToken = config.twitchApi?.userToken || TWITCH_OAUTH.replace(/^oauth:/i, "");
-
+// DELETE /interim/profiles/:id
+app.delete("/interim/profiles/:id", requireAdmin, async (req, res) => {
     try {
-        const body = { title: String(title).slice(0, 140) };
-        if (gameId) body.game_id = String(gameId);
-        if (language) body.broadcaster_language = String(language);
-        const r = await fetch(`https://api.twitch.tv/helix/channels?broadcaster_id=${TWITCH_BROADCASTER_ID}`, {
-            method: "PATCH",
-            headers: { "Client-ID": TWITCH_CLIENT_ID, "Authorization": `Bearer ${userToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify(body)
-        });
-        if (r.status === 204) return res.json({ success: true });
-        const data = await r.json().catch(() => ({}));
-        console.log("[TWITCH UPDATE] status:", r.status, data);
-        res.status(r.ok ? 200 : 400).json(r.ok ? { success: true } : { error: data.message || "Token sans scope channel:manage:broadcast" });
-    } catch(e) { res.status(500).json({ error: e.message }); }
+        await pgPool.query(`DELETE FROM interim_profiles WHERE id = $1`, [req.params.id]);
+        res.json({ success: true });
+    } catch(e) { res.status(500).json({ success: false, error: e.message }); }
 });
-
-// Sauvegarde du user token Twitch (généré via OAuth)
-app.post("/twitch/save-user-token", requireAdmin, (req, res) => {
-    const token = String(req.body.token || "").trim().replace(/^oauth:/i, "");
-    if (!token) return res.status(400).json({ error: "Token requis" });
-    config.twitchApi.userToken = token;
-    res.json({ success: true });
-});
-
-// Page de callback OAuth Twitch (implicit flow — le token est dans le hash)
-app.get("/twitch/oauth-callback", (req, res) => {
-    res.send(`<!DOCTYPE html><html><head><title>Twitch Auth</title></head><body>
-    <script>
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      const token = params.get('access_token');
-      if (token) {
-        fetch('/twitch/save-user-token', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})})
-          .then(() => { document.body.innerHTML = '<h2 style="font-family:sans-serif;color:green;">✅ Twitch connecté ! Vous pouvez fermer cette fenêtre.</h2>'; setTimeout(() => window.close(), 2000); });
-      } else {
-        document.body.innerHTML = '<h2 style="font-family:sans-serif;color:red;">❌ Erreur — token non reçu</h2>';
-      }
-    </script>
-    <p style="font-family:sans-serif;">Connexion en cours...</p>
-    </body></html>`);
-});
-
-/* ================= OBS API — ADMIN ONLY ================= */
-
-app.get("/obs/status", requireAdmin, async (req, res) => {
-    try {
-        if (config.obs?.enabled && !obsBridgeEnabled() && !obsState.connected && !obsState.connecting) {
-            connectOBS();
-        }
-
-        let scenes = config.obs?.defaultScenes || [];
-
-        if (obsState.connected) {
-            try {
-                const data = await safeOBSCall("GetSceneList");
-                scenes = (data.scenes || []).map(s => s.sceneName);
-            } catch (e) {}
-        }
-
-        res.json({
-            enabled: !!config.obs?.enabled,
-            connected: obsState.connected,
-            connecting: obsState.connecting,
-            error: obsState.lastError,
-            lastConnect: obsState.lastConnect,
-            lastDisconnect: obsState.lastDisconnect,
-            reconnectCount: obsState.reconnectCount,
-            url: config.obs?.url || "",
-            micInputName: config.obs?.micInputName || "Mic/Aux",
-            scenes
-        });
-    } catch (e) {
-        res.json({
-            enabled: !!config.obs?.enabled,
-            connected: false,
-            connecting: false,
-            error: e.message,
-            scenes: config.obs?.defaultScenes || []
-        });
-    }
-});
-
-app.post("/obs/reconnect", requireAdmin, async (req, res) => {
-    try {
-        obsState.connected = false;
-        obsConnected = false;
-        const connected = await connectOBS(true);
-        res.json({ success: connected, connected });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-app.post("/obs/scene", requireAdmin, async (req, res) => {
-    try {
-        const sceneName = String(req.body.scene || "").trim();
-        if (!sceneName) return res.status(400).json({ error: "scene_required" });
-
-        await safeOBSCall("SetCurrentProgramScene", { sceneName });
-        res.json({ success: true, scene: sceneName });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-app.post("/obs/mic", requireAdmin, async (req, res) => {
-    try {
-        const inputName = String(req.body.inputName || config.obs?.micInputName || "Mic/Aux");
-        const inputMuted = !!req.body.muted;
-
-        await safeOBSCall("SetInputMute", { inputName, inputMuted });
-        res.json({ success: true, inputName, muted: inputMuted });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-app.post("/obs/mic/toggle", requireAdmin, async (req, res) => {
-    try {
-        const inputName = String(req.body.inputName || config.obs?.micInputName || "Mic/Aux");
-        const current = await safeOBSCall("GetInputMute", { inputName });
-        const inputMuted = !current.inputMuted;
-
-        await safeOBSCall("SetInputMute", { inputName, inputMuted });
-        res.json({ success: true, inputName, muted: inputMuted });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
-app.post("/obs/alert", requireAdmin, async (req, res) => {
-    try {
-        const alertType = String(req.body.alertType || "follower-latest");
-        const name = String(req.body.name || "TEST ALERT");
-        const extra = String(req.body.extra || "");
-
-        sendAlert(alertType, name, extra);
-        res.json({ success: true, alertType, name });
-    } catch (e) {
-        res.status(500).json({ success: false, error: e.message });
-    }
-});
-
 
 /* ================= ROUTES — BOTS PANEL ================= */
 

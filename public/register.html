@@ -548,6 +548,7 @@
     const ERRORS = {
       pseudo_invalide: "Pseudo invalide (3-32 chars, lettres/chiffres/_)",
       email_invalide: "Adresse email invalide",
+      email_requis: "L'adresse email est obligatoire",
       mot_de_passe_trop_court: "Mot de passe trop court (min 8 caractères)",
       mots_de_passe_differents: "Les mots de passe ne correspondent pas",
       compte_existe: "Ce pseudo est déjà pris",
@@ -598,44 +599,80 @@
     const urlError = new URLSearchParams(location.search).get("error");
     if (urlError) showError(ERRORS[urlError] || "Erreur : " + urlError);
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
       clearError();
 
       const username = usernameEl.value.trim().toLowerCase();
       usernameEl.value = username;
 
       if (!/^[a-z0-9_]{3,32}$/.test(username)) {
-        e.preventDefault();
         showError(ERRORS.pseudo_invalide);
         return;
       }
 
       const email = emailEl.value.trim();
       if (!email) {
-        e.preventDefault();
         showError("L'adresse email est obligatoire.");
         return;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        e.preventDefault();
         showError(ERRORS.email_invalide);
         return;
       }
 
       if (passwordEl.value.length < 8) {
-        e.preventDefault();
         showError(ERRORS.mot_de_passe_trop_court);
         return;
       }
 
       if (passwordEl.value !== confirmEl.value) {
-        e.preventDefault();
         showError(ERRORS.mots_de_passe_differents);
         return;
       }
 
       submitBtn.disabled = true;
       submitBtn.textContent = "⏳ Création en cours...";
+
+      try {
+        const res = await fetch("/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+            "X-Requested-With": "fetch"
+          },
+          body: new URLSearchParams({ username, email, password: passwordEl.value })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showError(ERRORS[data.error] || data.error || "Erreur d'inscription");
+          submitBtn.disabled = false;
+          submitBtn.textContent = "➕ Créer le compte";
+          return;
+        }
+
+        // Stocker le token dans localStorage
+        if (data.token) {
+          localStorage.setItem("dashboard_token", data.token);
+          localStorage.setItem("dashboard_user", JSON.stringify(data.user || {}));
+        }
+
+        // Redirection selon le rôle
+        const role = data.user?.role || "neutre";
+        const returnTo = new URLSearchParams(location.search).get("returnTo");
+        if (returnTo && returnTo.startsWith("/")) {
+          window.location.href = returnTo;
+        } else {
+          window.location.href = role === "neutre" ? "/welcome.html" : "/dashboard.html";
+        }
+      } catch (err) {
+        showError("Erreur réseau, réessaie.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "➕ Créer le compte";
+      }
     });
   </script>
 </body>

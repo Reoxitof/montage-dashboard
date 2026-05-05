@@ -529,26 +529,65 @@
     const urlError = new URLSearchParams(location.search).get("error");
     if (urlError) showError(ERRORS[urlError] || "Erreur : " + urlError);
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
       errorBox.classList.remove("show");
 
       const identifier = usernameEl.value.trim().toLowerCase();
       usernameEl.value = identifier;
 
       if (!identifier) {
-        e.preventDefault();
         showError("Saisis ton pseudo ou ton email.");
         return;
       }
 
       if (passwordEl.value.length < 8) {
-        e.preventDefault();
         showError("Mot de passe trop court (min 8 caractères)");
         return;
       }
 
       submitBtn.disabled = true;
       submitBtn.textContent = "⏳ Connexion...";
+
+      try {
+        const res = await fetch("/auth/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+            "X-Requested-With": "fetch"
+          },
+          body: new URLSearchParams({ username: identifier, password: passwordEl.value })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || data.error) {
+          showError(ERRORS[data.error] || data.error || "Erreur de connexion");
+          submitBtn.disabled = false;
+          submitBtn.textContent = "🔓 Se connecter";
+          return;
+        }
+
+        // Stocker le token dans localStorage
+        if (data.token) {
+          localStorage.setItem("dashboard_token", data.token);
+          localStorage.setItem("dashboard_user", JSON.stringify(data.user || {}));
+        }
+
+        // Redirection selon le rôle
+        const role = data.user?.role || "neutre";
+        const returnTo = new URLSearchParams(location.search).get("returnTo");
+        if (returnTo && returnTo.startsWith("/")) {
+          window.location.href = returnTo;
+        } else {
+          window.location.href = role === "neutre" ? "/welcome.html" : "/dashboard.html";
+        }
+      } catch (err) {
+        showError("Erreur réseau, réessaie.");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "🔓 Se connecter";
+      }
     });
   </script>
 </body>
