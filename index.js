@@ -828,7 +828,12 @@ app.get("/", (req, res) => {
     if (host === "reoxitof.online" || host === "www.reoxitof.online") {
         return res.sendFile(path.join(__dirname, "public", "home.html"));
     }
-    return res.sendFile(path.join(__dirname, "public", "index.html"));
+    // Healthcheck Sliplane et accès direct → login
+    const indexPath = path.join(__dirname, "public", "index.html");
+    if (fs.existsSync(indexPath)) {
+        return res.sendFile(indexPath);
+    }
+    return res.sendFile(path.join(__dirname, "public", "login.html"));
 });
 
 app.get("/home", (req, res) => res.sendFile(path.join(__dirname, "public", "home.html")));
