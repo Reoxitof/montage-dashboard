@@ -1,4 +1,4 @@
-﻿const { spawn } = require("child_process");
+const { spawn } = require("child_process");
 const express = require("express");
 const path = require("path");
 const http = require("http");
@@ -205,11 +205,15 @@ const io = new Server(server, {
 
 app.use(express.json());
 
+// Créer le dossier sessions si inexistant (évite crash FileStore)
+try { fs.mkdirSync(path.join(__dirname, "sessions"), { recursive: true }); } catch(e) {}
+
 app.use(session({
     store: new FileStore({
         path: path.join(__dirname, "sessions"),
         ttl: 60 * 60 * 24 * 7,
-        retries: 1,
+        retries: 0,
+        reapInterval: 3600,
         logFn: () => {}
     }),
     secret: config.localAuth?.sessionSecret || "CHANGE_ME_LOCAL_SESSION",
@@ -2327,9 +2331,9 @@ app.post("/bots/config/:bot", requireAdmin, async (req, res) => {
 // Charger la config bots au démarrage (appelé dans start())
 
 (async () => {
-    await loadSavedTheme();
-    await loadSavedProfile();
-    await loadBotsConfig();
+    try { await loadSavedTheme(); } catch(e) { console.log("[START] loadSavedTheme:", e.message); }
+    try { await loadSavedProfile(); } catch(e) { console.log("[START] loadSavedProfile:", e.message); }
+    try { await loadBotsConfig(); } catch(e) { console.log("[START] loadBotsConfig:", e.message); }
 server.listen(APP_PORT, APP_HOST, () => {
     console.log("═══════════════════════════════════════════");
     console.log(" Reoxitof Overlay — NUI Edition v3.0");
