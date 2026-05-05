@@ -2336,22 +2336,25 @@ app.post("/bots/config/:bot", requireAdmin, async (req, res) => {
 // Charger la config bots au démarrage (appelé dans start())
 
 (async () => {
-    try { await loadSavedTheme(); } catch(e) { console.log("[START] loadSavedTheme:", e.message); }
-    try { await loadSavedProfile(); } catch(e) { console.log("[START] loadSavedProfile:", e.message); }
-    try { await loadBotsConfig(); } catch(e) { console.log("[START] loadBotsConfig:", e.message); }
-server.listen(APP_PORT, APP_HOST, () => {
-    console.log("═══════════════════════════════════════════");
-    console.log(" Reoxitof Overlay — NUI Edition v3.0");
-    console.log(`  Mode     : ${config.server.mode === "local" ? "LOCAL (127.0.0.1)" : "HÉBERGÉ (0.0.0.0)"}`);
-    console.log(`  Port     : ${APP_PORT}`);
-    console.log(`  URL      : ${PUBLIC_URL}`);
-    console.log(`  Twitch   : ${TWITCH_CHANNEL}`);
-    console.log("═══════════════════════════════════════════");
-    console.log(`  Overlay  : ${PUBLIC_URL}`);
-    console.log(`  Dashboard: ${PUBLIC_URL}/dashboard.html`);
-    console.log(`  Vote     : ${PUBLIC_URL}/vote.html`);
-    console.log("═══════════════════════════════════════════");
+    // Démarrer le serveur HTTP immédiatement pour passer le healthcheck Sliplane
+    await new Promise((resolve) => {
+        server.listen(APP_PORT, APP_HOST, () => {
+            console.log("═══════════════════════════════════════════");
+            console.log(" Reoxitof Overlay — NUI Edition v3.0");
+            console.log(`  Mode     : ${config.server.mode === "local" ? "LOCAL (127.0.0.1)" : "HÉBERGÉ (0.0.0.0)"}`);
+            console.log(`  Port     : ${APP_PORT}`);
+            console.log(`  URL      : ${PUBLIC_URL}`);
+            console.log(`  Twitch   : ${TWITCH_CHANNEL}`);
+            console.log("═══════════════════════════════════════════");
+            console.log(`  Overlay  : ${PUBLIC_URL}`);
+            console.log(`  Dashboard: ${PUBLIC_URL}/dashboard.html`);
+            console.log(`  Vote     : ${PUBLIC_URL}/vote.html`);
+            console.log("═══════════════════════════════════════════");
+            resolve();
+        });
+    });
 
+    // Initialisation async après que le serveur écoute
     initStatsTracking();
 
     if (TWITCH_CLIENT_ID && TWITCH_OAUTH && TWITCH_BROADCASTER_ID) {
@@ -2364,6 +2367,10 @@ server.listen(APP_PORT, APP_HOST, () => {
 
     savePersistentState();
     console.log("[STATE] Sauvegarde persistante activée (toutes les 30s)");
+
+    try { await loadSavedTheme(); } catch(e) { console.log("[START] loadSavedTheme:", e.message); }
+    try { await loadSavedProfile(); } catch(e) { console.log("[START] loadSavedProfile:", e.message); }
+    try { await loadBotsConfig(); } catch(e) { console.log("[START] loadBotsConfig:", e.message); }
 
     // ── Auto-lancement OBS Bridge (local uniquement) ──
     if (config.server?.mode === "local") {
@@ -2389,6 +2396,5 @@ server.listen(APP_PORT, APP_HOST, () => {
         process.on("exit", () => { try { bridge.kill(); } catch (e) {} });
         process.on("SIGINT", () => { try { bridge.kill(); } catch (e) {} process.exit(); });
     }
-});
 })();
 
